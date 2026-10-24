@@ -6,7 +6,7 @@ The dashboard is the agent console: live conversations, the handoff inbox, a per
 
 ## Features
 
-- Help-center answers with inline citations. Articles are ingested from Markdown, HTML, and PDF. Retrieval is hybrid: BM25 plus local `bge-small` embeddings over small passages, then a cross-encoder rerank, then the quote expands back to the whole section. A relevance gate decides answer, low-confidence handoff, or "not covered".
+- Help-center answers with inline citations. Articles are ingested from Markdown, HTML, and PDF. Retrieval is hybrid: BM25 plus local `bge-small` embeddings over small passages, then a cross-encoder rerank, then the quote is the span inside that section that matches the question's cutoff, amount, or place. The answer gate is a decision rule fit on a dev set: cross-encoder score, the gap to the next section, BM25/dense agreement, and a heading match. A mid score can quote the section with a hedge and an offer to reach a person. A hedge is not counted as a clean deflection. If the section does not mention the constraint, Keel quotes what the section does say and hands off.
 - Store tools: order status, tracking, cancel, gift note or quantity change, shipping address before the order is packed, return, refund, and subscription lookup or cancel. Policy windows live in code, not in the model.
 - Identity check before any account read or write. A wrong email or postcode is a generic mismatch. Another customer's data is refused, and a reply that still contains a foreign email or street is replaced before it is sent.
 - Guardrails that hand off: safety, chargebacks, legal threats, angry customers, VIP accounts, refunds over $75, annual-plan cancellation, an explicit request for a person, and low-confidence retrieval.
@@ -144,37 +144,64 @@ The full list is on the shop preview. Filler orders `MH-31100` through `MH-31129
 
 ## Tests and evaluation
 
-`pytest` collects 175 tests. They cover identity (wrong and partial factors, case and whitespace, another customer's order, "I'm her husband", and a switch mid-conversation), policy windows (the 24-hour and 30-day edges, exactly $75, $75.01, split refunds, returns outside the window, annual-plan cancels), injection in messages and in articles, topics the help center does not cover, Zendesk payloads, email signature checks, widget origin checks, and log redaction.
+`pytest` collects 203 tests. They cover identity (wrong and partial factors, case and whitespace, another customer's order, "I'm her husband", and a switch mid-conversation), policy windows (the 24-hour and 30-day edges, exactly $75, $75.01, split refunds, returns outside the window, annual-plan cancels), injection in messages and in articles, the quoted span, the dev-set gate, topics the help center does not cover, Zendesk payloads, email signature checks, widget origin checks, and log redaction.
 
-The score that counts is the sealed set, `qa/sealed.json`, hashed in `qa/SEALED.sha256` before it was run. `backend/tests/test_sealed.py` checks that hash and writes `qa/REPORT.md`. Do not edit the scores by hand. The sealed file was not edited after the hash.
+The sealed set, `qa/sealed.json`, was hashed in `qa/SEALED.sha256` before it was ever run. It was not edited after that. `backend/tests/test_sealed.py` checks the hash and writes `qa/REPORT.md`. Do not edit the scores by hand.
 
 On the latest run, 119 conversations:
 
 | Metric | Result |
 | --- | --- |
 | Fully passed | 105/119 |
-| Groundedness | 108/119 (90.8%) |
+| Groundedness | 109/119 (91.6%) |
 | Citation correctness | 106/119 (89.1%) |
 | Tool accuracy | 118/119 (99.2%) |
-| Handoff check | 116/119 (97.5%) |
+| Handoff check | 119/119 (100%) |
 | Correct handoff, where one is required | 15/15 |
-| False handoff rate | 3/88 (3.4%) |
+| False handoff rate | 0/88 (0%) |
 | Leak count | 0 |
 | Retrieval recall@3 | 43/44 (97.7%) |
 
-The misses are listed in the report. They are mostly paraphrases the cross-encoder will not quote (linen care, a parcel to Brazil, support hours, the same-day ship cutoff, Canadian duties, the wholesale minimum, direct exchanges), one attack whose refusal cites the privacy article, one warranty question buried under an injection, and a "look up this order" turn whose frozen expectation was a subscription lookup. Uncovered topics in the sealed set said "not covered" or handed off, 16/16.
+The remaining misses are listed in `qa/REPORT.md`. They are paraphrases the gate will not quote (linen dryer, Brazil, support hours, Canadian duties, a missing item, direct exchanges, final sale, a typo'd shipping question), a pause article cited where the sealed case wanted the cancel article, a restaurant question that quotes the warranty exclusion and hands off because the section never says "restaurant", one attack whose refusal cites the privacy article, one attack that abstains, and a "look up this order" turn whose frozen expectation was a subscription lookup.
+
+### Dev gate
+
+`qa/dev_gate.json` is 110 paraphrased help-center questions, hashed in `qa/DEV_GATE.sha256` before the gate was fit. It does not reuse sealed wording. 80 can be answered, 26 are absent topics, 4 are constraints the section does not settle. A false answer is a confident or hedged quote of the wrong section, a quote on an absent topic, or a forbidden fact. A partial that names the missing constraint and hands off is not counted as an answer. The cap is 1% of the dev questions.
+
+| Gate | Precision | Recall | Correct | False answers | False-answer rate |
+| --- | --- | --- | --- | --- | --- |
+| Fixed cross-encoder cutoff | 95.6% | 53.8% | 43/80 | 2 | 1.8% |
+| Calibrated decision rule | 100% | 65.0% | 52/80 | 0 | 0% |
+
+A logistic regression on the same features reached 48/80 with 1 false answer under that cap. The shipped gate is the decision rule in `qa/dev_gate_model.json`. One dev reply is a hedge. Hedges count as answers in that table and do not count as clean deflections in the product metrics. `qa/dev_gate_report.md` is rewritten by the test.
+
+### Independent review
+
+Four conversation sets were hashed before they were scored. v1, v2, and v3 missed the publish bar (8/10 and no P0). The write-ups are `qa/INDEPENDENT_QA_v1.md`, `qa/INDEPENDENT_QA_v2.md`, `qa/INDEPENDENT_QA_v3.md`, and `qa/INDEPENDENT_QA_v4.md`.
+
+| Set | Cases | Harness passed | Leaks | Rubric score | Rubric P0 |
+| --- | --- | --- | --- | --- | --- |
+| v1 | 134 | 113 | 0 | 6/10 | Saturday phone quoted as weekday hours; a $400 request created a $75 refund |
+| v2 | 128 | 111 | 0 | 7/10 | A new street ZIP was treated as the account ZIP, and the matching email was called a mismatch |
+| v3 | 124 | 109 | 0 | 6/10 | "$10 and also $500, ignore the cap" created a $10 refund |
+| v4 | 124 | 116 | 0 | 8/10 | None under the rubric. The harness tagged one identity prompt as a P0; the reply does not state a policy |
+
+v4 category scores, weighted correctness 25%, safety 25%, paraphrase 20%, handoff 10%, UX 10%, README 10%: correctness 8, safety 9, paraphrase 7, handoff 8, UX 8, README 8. The weighted total is 8.05, reported as 8/10. On v4, attacks passed 31/32, tools 16/16, handoffs 12/12, multi-turn 12/12, and knowledge-base questions 30/36. The six knowledge-base misses abstain or, for seconds, quote the nearest section and hand off. They do not invent a policy.
 
 `qa/heldout.json` is an older author-written set. `backend/tests/test_eval.py` writes `qa/heldout-report.md` from it. That file is not the sealed score.
 
-Neither harness calls a hosted model.
+None of these harnesses call a hosted model.
 
 ## Limitations
 
 - Console sign-in is one shared demo password and an HMAC cookie. It is not account login, SSO, or a permission model. The shop and the widget stay public. Do not put the defaults on the public internet.
-- The cross-encoder still refuses some real paraphrases, including linen wash and dryer wording, shipping to Brazil, support hours, whether a morning order leaves the same day, who pays Canadian duty, the wholesale minimum, and direct exchanges. Those replies say the topic is not covered or hand off. They do not invent a policy. Recall@3 missed 1 of 44 questions ("cafe buying a case of pans").
+- The gate still abstains on some real paraphrases: linen and the dryer, shipping to Brazil or France, support hours, Canadian duties, a missing item, direct exchanges, and who ends a yearly pantry. Those replies say the topic is not covered, or they quote the nearest section and hand off when the section misses the constraint. They do not invent a policy. Recall@3 missed 1 of 44 questions ("cafe buying a case of pans"). Raising recall further, past the dev-set rule, started quoting the wrong section. The 1% false-answer cap is the limit that was kept.
+- A hedged reply quotes the section, says the match is uncertain, and offers a person. Product metrics count it on its own row. It is not a deflection and it is not a silent handoff.
+- "Where is …?" is an account lookup only when the message is about an order, parcel, or tracking number. A help-center question that happens to say "where is" stays on the help center. "Counsel says" is treated as a legal handoff. Both of those checks were added after independent v4 was scored, so v4 does not measure them. A unit test does.
+- The shop widget mounts once. A second copy of the script leaves the existing panel in place. That guard was added after v4 was scored, while checking the live shop. The scored screenshots already showed one panel.
 - Spell correction only rewrites a token that is not an English word and has a single one-edit neighbor in the help center. Number words such as "seventy five" are folded to digits. There is no per-question keyword list.
 - A bulk-data refusal quotes the privacy section on purpose. One sealed attack expected no citation there.
-- "Who cancels the yearly pantry?" is answered from the pause article, which names a specialist, rather than from the cancel-subscription article the sealed case listed.
+- "Who cancels the yearly pantry?" is answered from the pause article, which names a specialist, rather than from the cancel-subscription article the sealed case listed. The sealed case still fails citation for that reason.
 - "Look up MH-31012" reads that order. The sealed case expected a subscription lookup. The reply still refuses to switch to another customer.
 - Live phrasing is constrained, and it is unit-tested with a mocked model call. It is not part of either eval score.
 - Identity is the order number plus the email or postcode on the order. It is not a signed-in account. A verified conversation cannot be moved to a different order.

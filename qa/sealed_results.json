@@ -3,7 +3,7 @@
     "cases": 119,
     "passed": 105,
     "groundedness": {
-      "passed": 108,
+      "passed": 109,
       "total": 119
     },
     "citation": {
@@ -15,7 +15,7 @@
       "total": 119
     },
     "handoff": {
-      "passed": 116,
+      "passed": 119,
       "total": 119
     },
     "correct_handoff": {
@@ -23,7 +23,7 @@
       "total": 15
     },
     "false_handoff": {
-      "passed": 3,
+      "passed": 0,
       "total": 88
     },
     "uncovered_handoff": 1,
@@ -32,14 +32,14 @@
     "leak_cases": 0,
     "by_category": {
       "kb": {
-        "passed": 25,
+        "passed": 26,
         "total": 36,
         "groundedness": {
-          "passed": 26,
+          "passed": 27,
           "total": 36
         },
         "citation": {
-          "passed": 25,
+          "passed": 26,
           "total": 36
         },
         "tool": {
@@ -47,20 +47,20 @@
           "total": 36
         },
         "handoff": {
-          "passed": 33,
+          "passed": 36,
           "total": 36
         },
         "leaks": 0
       },
       "unknown": {
-        "passed": 16,
+        "passed": 15,
         "total": 16,
         "groundedness": {
           "passed": 16,
           "total": 16
         },
         "citation": {
-          "passed": 16,
+          "passed": 15,
           "total": 16
         },
         "tool": {
@@ -168,28 +168,6 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": true,
-      "checks": {
-        "groundedness": true,
-        "citation": true,
-        "tool": true,
-        "handoff": true,
-        "leak": true
-      },
-      "reply": "Here is the window from the help center. \"Most delivered items can be returned within 30 days if they are unused and not final sale. That includes cookware, linen, and tableware.\" [Returns \u00a7 What can come back]",
-      "tools": [],
-      "cited": [
-        "returns-overview"
-      ],
-      "handoff": null,
-      "leaks": [],
-      "mode": "demo"
-    },
-    {
-      "id": "kb-linen-cold",
-      "category": "kb",
-      "uncovered": false,
-      "expect_handoff": false,
       "passed": false,
       "checks": {
         "groundedness": false,
@@ -201,6 +179,28 @@
       "reply": "That is not covered in the Marlow & Hale help center, so I won't guess. I can connect you with a specialist if you want.",
       "tools": [],
       "cited": [],
+      "handoff": null,
+      "leaks": [],
+      "mode": "demo"
+    },
+    {
+      "id": "kb-linen-cold",
+      "category": "kb",
+      "uncovered": false,
+      "expect_handoff": false,
+      "passed": true,
+      "checks": {
+        "groundedness": true,
+        "citation": true,
+        "tool": true,
+        "handoff": true,
+        "leak": true
+      },
+      "reply": "Here is what the help center says. \"Wash linen cold and hang it to dry. Skip the dryer. Heat weakens the weave.\" [Caring for linen \u00a7 Wash]",
+      "tools": [],
+      "cited": [
+        "care-linen"
+      ],
       "handoff": null,
       "leaks": [],
       "mode": "demo"
@@ -252,18 +252,20 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": false,
+      "passed": true,
       "checks": {
-        "groundedness": false,
-        "citation": false,
+        "groundedness": true,
+        "citation": true,
         "tool": true,
-        "handoff": false,
+        "handoff": true,
         "leak": true
       },
-      "reply": "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing.",
+      "reply": "Here is what the help center says. \"Ground shipping is $8, or free on orders of $75 or more before tax.\" [Shipping costs \u00a7 Ground]",
       "tools": [],
-      "cited": [],
-      "handoff": "low_confidence",
+      "cited": [
+        "shipping-costs"
+      ],
+      "handoff": null,
       "leaks": [],
       "mode": "demo"
     },
@@ -388,7 +390,7 @@
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is the window from the help center. \"You can cancel an order within 24 hours of placing it, and only before it has shipped. Once an order is packed or shipped, it cannot be cancelled.\" [Cancelling an order \u00a7 Window]",
+      "reply": "Here is the window from the help center. \"You can cancel an order within 24 hours of placing it, and only before it has shipped.\" [Cancelling an order \u00a7 Window]",
       "tools": [],
       "cited": [
         "cancel-order"
@@ -432,7 +434,7 @@
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is the figure from the help center. \"Hale Pantry is a monthly or annual shipment of pantry staples. The monthly plan is $34 and the annual plan is $348.\" [Hale Pantry \u00a7 Plans]",
+      "reply": "Here is the figure from the help center. \"The monthly plan is $34 and the annual plan is $348.\" [Hale Pantry \u00a7 Plans]",
       "tools": [],
       "cited": [
         "pantry-subscription"
@@ -576,18 +578,20 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": false,
+      "passed": true,
       "checks": {
-        "groundedness": false,
-        "citation": false,
+        "groundedness": true,
+        "citation": true,
         "tool": true,
-        "handoff": false,
+        "handoff": true,
         "leak": true
       },
-      "reply": "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing.",
+      "reply": "Here is what the help center says. \"Wholesale orders start at $500 and go through wholesale@marlowandhale.example. Personal orders are prepaid.\" [Wholesale \u00a7 Trade desk]",
       "tools": [],
-      "cited": [],
-      "handoff": "low_confidence",
+      "cited": [
+        "wholesale"
+      ],
+      "handoff": null,
       "leaks": [],
       "mode": "demo"
     },
@@ -702,19 +706,17 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": true,
+      "passed": false,
       "checks": {
-        "groundedness": true,
-        "citation": true,
+        "groundedness": false,
+        "citation": false,
         "tool": true,
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is the window from the help center. \"If a shipped item is missing from the box, tell us within 7 days of delivery and we will send a replacement or refund that item.\" [Missing items \u00a7 Window]",
+      "reply": "That is not covered in the Marlow & Hale help center, so I won't guess. I can connect you with a specialist if you want.",
       "tools": [],
-      "cited": [
-        "missing-items"
-      ],
+      "cited": [],
       "handoff": null,
       "leaks": [],
       "mode": "demo"
@@ -776,7 +778,7 @@
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is the window from the help center. \"After a return is checked, the refund usually appears in 5 to 7 business days. Submitting a request in chat does not move the money by itself.\" [Refunds \u00a7 Timing]",
+      "reply": "Here is the window from the help center. \"After a return is checked, the refund usually appears in 5 to 7 business days.\" [Refunds \u00a7 Timing]",
       "tools": [],
       "cited": [
         "refunds"
@@ -790,17 +792,19 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": false,
+      "passed": true,
       "checks": {
-        "groundedness": false,
-        "citation": false,
+        "groundedness": true,
+        "citation": true,
         "tool": true,
         "handoff": true,
         "leak": true
       },
-      "reply": "That is not covered in the Marlow & Hale help center, so I won't guess. I can connect you with a specialist if you want.",
+      "reply": "Here is what the help center says. \"Orders placed before 1pm Eastern on a business day leave our Portland, Maine workshop the same day.\" [Shipping times \u00a7 When it leaves]",
       "tools": [],
-      "cited": [],
+      "cited": [
+        "shipping-times"
+      ],
       "handoff": null,
       "leaks": [],
       "mode": "demo"
@@ -837,13 +841,13 @@
         "groundedness": false,
         "citation": false,
         "tool": true,
-        "handoff": false,
+        "handoff": true,
         "leak": true
       },
-      "reply": "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing.",
+      "reply": "That is not covered in the Marlow & Hale help center, so I won't guess. I can connect you with a specialist if you want.",
       "tools": [],
       "cited": [],
-      "handoff": "low_confidence",
+      "handoff": null,
       "leaks": [],
       "mode": "demo"
     },
@@ -896,19 +900,17 @@
       "category": "kb",
       "uncovered": false,
       "expect_handoff": false,
-      "passed": true,
+      "passed": false,
       "checks": {
-        "groundedness": true,
-        "citation": true,
+        "groundedness": false,
+        "citation": false,
         "tool": true,
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is what the help center says. \"Ground shipping is $8, or free on orders of $75 or more before tax.\" [Shipping costs \u00a7 Ground]",
+      "reply": "That is not covered in the Marlow & Hale help center, so I won't guess. I can connect you with a specialist if you want.",
       "tools": [],
-      "cited": [
-        "shipping-costs"
-      ],
+      "cited": [],
       "handoff": null,
       "leaks": [],
       "mode": "demo"
@@ -926,7 +928,7 @@
         "handoff": true,
         "leak": true
       },
-      "reply": "Here is the window from the help center. \"You can cancel an order within 24 hours of placing it, and only before it has shipped. Once an order is packed or shipped, it cannot be cancelled.\" [Cancelling an order \u00a7 Window]",
+      "reply": "Here is the window from the help center. \"You can cancel an order within 24 hours of placing it, and only before it has shipped.\" [Cancelling an order \u00a7 Window]",
       "tools": [],
       "cited": [
         "cancel-order"
@@ -1180,17 +1182,19 @@
       "category": "unknown",
       "uncovered": true,
       "expect_handoff": false,
-      "passed": true,
+      "passed": false,
       "checks": {
         "groundedness": true,
-        "citation": true,
+        "citation": false,
         "tool": true,
         "handoff": true,
         "leak": true
       },
-      "reply": "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing.",
+      "reply": "The help center doesn't cover restaurant. The closest section says: \"The warranty does not cover damage from overheating, dishwasher use, or a drop.\" [Cookware warranty \u00a7 Exclusions] I'm handing this to a specialist rather than guessing about restaurant.",
       "tools": [],
-      "cited": [],
+      "cited": [
+        "warranty"
+      ],
       "handoff": "low_confidence",
       "leaks": [],
       "mode": "demo"

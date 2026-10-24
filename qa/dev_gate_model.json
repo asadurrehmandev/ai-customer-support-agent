@@ -1,0 +1,29 @@
+{
+  "kind": "rule",
+  "dev_sha256": "ae330e98fee676c5d4e7a563d4fddfca1529d50c30dfcd9038f8e8af680a49c8",
+  "features": ["ce", "margin", "rrf", "heading", "agree", "overlap", "cosine", "duration"],
+  "params": {
+    "ce_hi": 1.0,
+    "m_dur": 0.5,
+    "ce_dur": -6.0,
+    "cos_dur": 0.6,
+    "m_ag": 3.5,
+    "ov_ag": 2,
+    "ce_ag": -4.0,
+    "cos_ag": 0.6,
+    "m_hd": 4.0,
+    "ov_hd": 1,
+    "ce_hd": -8.0,
+    "cos_hd": 0.6,
+    "m_he": 3.5,
+    "ce_he": -6.0,
+    "cos_he": 0.6
+  },
+  "logistic_attempt": {
+    "correct": 48,
+    "false": 1,
+    "positives": 80,
+    "questions": 110,
+    "note": "L2 logistic regression on the same eight features. Best threshold under the 1% false-answer cap. The decision rule above answered more questions with no false answers, so it is the gate."
+  }
+}

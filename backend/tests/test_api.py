@@ -39,6 +39,7 @@ def test_health_and_widget(client):
     assert script.status_code == 200
     assert "Marlow & Hale" in script.text
     assert "Demo mode: sample responses" in script.text
+    assert 'document.querySelector("[data-keel-widget]")' in script.text
 
 
 def test_chat_is_grounded_and_metrics_follow_real_rows(client):

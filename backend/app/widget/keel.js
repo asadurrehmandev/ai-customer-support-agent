@@ -1,4 +1,5 @@
 (function () {
+  if (document.querySelector("[data-keel-widget]")) return;
   var script = document.currentScript;
   var api = (script && script.getAttribute("data-api")) || (script && script.src ? new URL(script.src).origin : window.location.origin);
   var root = document.createElement("div");

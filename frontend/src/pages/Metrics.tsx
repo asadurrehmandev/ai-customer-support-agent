@@ -42,7 +42,8 @@ export function Metrics() {
                 <Row label="Conversations" value={String(data.conversations)} />
                 <Row label="Open, excluded from the rate" value={String(data.open)} />
                 <Row label="Closed" value={String(data.closed)} />
-                <Row label="Resolved without a handoff" value={String(data.deflected)} />
+                <Row label="Resolved without a handoff or a hedge" value={String(data.deflected)} />
+                <Row label="Hedged answers, quoted but not counted as deflected" value={String(data.hedged ?? 0)} />
                 <Row label="Handed off" value={String(data.handed_off)} />
                 <Row label="Deflection rate" value={rate(data.deflection_rate, data.deflected, data.closed)} />
               </tbody>

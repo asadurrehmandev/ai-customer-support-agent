@@ -3,8 +3,6 @@
 import re
 
 from app.agent.read import INSTRUCT, is_instructional, normalize_untrusted
-from app.kb.relevance import best_band
-
 DONT_KNOW = (
     "That is not covered in the Marlow & Hale help center, so I won't guess. "
     "I can connect you with a specialist if you want."
@@ -16,6 +14,8 @@ SWITCH = (
 LOW_CONFIDENCE = (
     "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing."
 )
+HEDGE_LEAD = "I think this is the right section, though I'm not certain it covers every part of the question."
+HEDGE_OFFER = "A specialist can confirm if you'd like a person to take it."
 MISMATCH = (
     "Those details don't match an order I can access. "
     "Check the order number and the email or postcode on the confirmation."
@@ -101,14 +101,31 @@ def _citation(tool: str, code: str, reason: str):
 def compose_kb(query: str, hits: list, directory_emails: set[str]) -> tuple[str, str | None]:
     if not hits:
         return "none", None
-    picked = pick_quote(query, hits, directory_emails)
-    if picked is not None:
-        sentence, hit = picked
-        return "answer", f"{_lead(query)} \"{sentence}\" {cite(hit.title, hit.section)}"
-    level = best_band(query, hits)
-    if level == "low":
+    from app.kb.relevance import decide
+    from app.kb.span import select_span
+
+    decision = decide(query, hits)
+    if decision.level == "none":
+        return "none", None
+    if decision.level == "low":
         return "low", None
-    return "none", None
+    hit = hits[0]
+    span = select_span(query, hit.text, directory_emails)
+    if not span.quote:
+        return "none", None
+    citation = cite(hit.title, hit.section)
+    if span.unmet:
+        shown = ", ".join(span.unmet[:3])
+        body = (
+            f"The help center doesn't cover {shown}. "
+            f"The closest section says: \"{span.quote}\" {citation} "
+            f"I'm handing this to a specialist rather than guessing about {shown}."
+        )
+        return "partial", body
+    if decision.level == "hedge":
+        body = f"{HEDGE_LEAD} {_lead(query)} \"{span.quote}\" {citation} {HEDGE_OFFER}"
+        return "hedge", body
+    return "answer", f"{_lead(query)} \"{span.quote}\" {citation}"
 
 
 def pick_quote(query: str, hits: list, directory_emails: set[str]):

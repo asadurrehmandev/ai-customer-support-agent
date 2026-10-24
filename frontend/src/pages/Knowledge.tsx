@@ -11,6 +11,7 @@ export function Knowledge() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[] | null>(null);
   const [band, setBand] = useState("");
+  const [probability, setProbability] = useState<number | null>(null);
   const [searchError, setSearchError] = useState("");
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export function Knowledge() {
               .then((result) => {
                 setHits(result.hits);
                 setBand(result.band);
+                setProbability(result.probability);
               })
               .catch((err: unknown) => setSearchError(err instanceof Error ? err.message : "Search failed."));
           }}
@@ -89,7 +91,10 @@ export function Knowledge() {
         ) : null}
         {hits && hits.length > 0 && band !== "none" ? (
           <div className="mt-4">
-            <p className="text-sm text-muted">Gate: {band}. Scores are the retriever's, not a confidence percentage.</p>
+            <p className="text-sm text-muted">
+              Gate: {band}
+              {probability === null ? "" : ` (${probability})`}. The number is the calibrated probability that the top section answers the question. Retriever scores stay on each section.
+            </p>
             <ul className="mt-2 space-y-3">
               {hits.map((hit) => (
                 <li key={`${hit.article_id}-${hit.section}`} className="rounded-xl border border-line p-3">

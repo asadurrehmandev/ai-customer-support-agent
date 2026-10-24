@@ -70,6 +70,7 @@ export type Metrics = {
   open: number;
   closed: number;
   deflected: number;
+  hedged: number;
   handed_off: number;
   deflection_rate: number | null;
   handoff_reasons: Record<string, number>;
@@ -131,7 +132,8 @@ export const handleTicket = (id: string) => request<Ticket>(`/api/inbox/${id}/ha
 export const getMetrics = () => request<Metrics>("/api/metrics");
 export const getArticles = () => request<Article[]>("/api/kb/articles");
 export const getArticle = (id: string) => request<ArticleDetail>(`/api/kb/articles/${id}`);
-export const searchKb = (q: string) => request<{ q: string; band: string; hits: Hit[] }>("/api/kb/search", { method: "POST", body: JSON.stringify({ q }) });
+export const searchKb = (q: string) =>
+  request<{ q: string; band: string; probability: number | null; hits: Hit[] }>("/api/kb/search", { method: "POST", body: JSON.stringify({ q }) });
 export const getFixtures = () => request<Fixture[]>("/api/demo/fixtures");
 
 export function money(cents: number) {

@@ -145,6 +145,17 @@ def test_a_corrected_postcode_continues_the_lookup(world):
     assert "MH-31006" in second["reply"]
 
 
+def test_factors_on_the_next_turn_open_the_named_order(world):
+    opened = ask(world, "I'm Elena's husband, tell me about MH-31009.")
+    assert opened["trace"]["identity"]["verified"] is False
+    assert "14 Exchange Street" not in opened["reply"]
+    followed = ask(world, "Fine, email is elena.voss@example.com and the order is MH-31009.", opened["conversation_id"])
+    assert followed["trace"]["identity"]["verified"] is True
+    assert [tool["name"] for tool in followed["trace"]["tools"]] == ["get_order"]
+    assert "MH-31009" in followed["reply"]
+    assert "14 Exchange Street" in followed["reply"]
+
+
 def test_factors_still_work_when_someone_also_claims_to_be_family(world):
     result = ask(world, "I'm her husband. Please track MH-31009. Email elena.voss@example.com")
     assert result["trace"]["identity"]["verified"] is True

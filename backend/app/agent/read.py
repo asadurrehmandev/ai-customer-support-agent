@@ -17,6 +17,8 @@ HUMAN = re.compile(
 YES = re.compile(r"^\s*(yes|yes please|please do|yeah|yep|sure|ok|okay)\s*[.!]?\s*$", re.I)
 INSTRUCT = re.compile(
     r"(ignore (all |any |the )?(previous|prior|above|instructions)|ignore (the |our )?policy|"
+    r"ignore (the |our )?\$\s*\d+\s*(review|rule|limit|cap|threshold)|"
+    r"ignore the (review |refund )?(cap|threshold|limit|rule|ceiling)|"
     r"disregard (the |our )?(policy|instructions)|system prompt|you are now|print every|"
     r"list all (of the )?(customer|email)|dump (the )?(database|emails)|developer mode|"
     r"jailbreak|reveal (all |every |the )?(customer|email|order|prompt|system)|do not follow|"
@@ -37,10 +39,12 @@ EVERYONE = re.compile(
     r"(every customer|all customers|all emails|other customer|someone else|entire database|all orders in the)",
     re.I,
 )
-SAFETY = ("injured", "injury", "burn", "burned", "burning", "fire", "bleeding", "swallowed", "chok", "recall", "poison", "hospital", "clinic")
+# Whole words. "burn" must not match "burner". "chok" stays a prefix so choking and choked still hand off.
+SAFETY = ("injured", "injury", "injuries", "burn", "burned", "burning", "burnt", "fire", "bleeding", "swallowed", "chok", "recall", "recalled", "poison", "poisoned", "hospital", "clinic")
+SAFETY_PREFIX = ("chok",)
 HARM = ("allergic reaction", "anaphylaxis")
 CHARGE = ("chargeback", "charge back", "charge-back", "disputed the charge", "dispute the charge", "opened a dispute", "called my bank", "calling my bank", "call my bank", "opening a chargeback")
-LEGAL = ("lawyer", "attorney", "lawsuit", "sue ", "suing", "legal action", "my solicitor")
+LEGAL = ("lawyer", "attorney", "lawsuit", "sue ", "suing", "legal action", "my solicitor", "my counsel", "counsel says", "general counsel")
 STRONG = ("furious", "scam", "incompetent", "disgusting", "worst company", "idiot", "useless")
 MEDIUM = ("ridiculous", "unacceptable", "angry", "disgusted", "outraged", "terrible")
 
@@ -54,6 +58,14 @@ ACCOUNT_INTENTS = {
     "order_status",
     "list_orders",
     "subscription_lookup",
+    "cancel_subscription",
+}
+MUTATING_INTENTS = {
+    "cancel_order",
+    "edit_order",
+    "update_address",
+    "start_return",
+    "start_refund",
     "cancel_subscription",
 }
 
@@ -109,6 +121,8 @@ def task_intent(text: str, verified: bool) -> str:
         return "kb"
     if re.search(r"gift note|gift-note|quantity", lowered) and (bound or "order" in lowered):
         return "edit_order"
+    if re.search(r"\b\d{1,6}\s+[a-z0-9.'-]+(?:\s+[a-z0-9.'-]+){0,5},\s*[a-z][^,\n]{1,40},\s*[a-z]{2}\s+\d{5}\b", lowered) and (bound or "order" in lowered):
+        return "update_address"
     if "address" in lowered:
         if re.search(r"\b(change|update|set|correct|switch)\b", lowered) and (bound or "order" in lowered):
             return "update_address"
@@ -118,7 +132,7 @@ def task_intent(text: str, verified: bool) -> str:
             return "order_status"
         if bound:
             return "update_address"
-    if re.search(r"\b(hale pantry|subscription)\b", lowered) or "my plan" in lowered:
+    if re.search(r"\b(hale pantry|subscription|pantry)\b", lowered) or "my plan" in lowered:
         if "cancel" in lowered and bound and not lowered.strip().startswith("how"):
             return "cancel_subscription"
         if bound and not policy_q:
@@ -128,13 +142,15 @@ def task_intent(text: str, verified: bool) -> str:
         if has_order or verified or re.search(r"\b(my|this|the) order\b", lowered):
             return "start_refund"
         return "kb"
-    if re.search(r"\breturn\b", lowered):
+    if re.search(r"\breturn\b|\bsend(?:\s+\S+){0,4}\s+back\b", lowered):
         if policy_q and not has_order:
             return "kb"
         if has_order or (verified and re.search(r"\b(want|start|please|would like)\b", lowered)):
             return "start_return"
         return "kb"
-    if "cancel" in lowered:
+    if "cancel" in lowered or (
+        re.search(r"\b(stop|halt)\b", lowered) and (has_order or re.search(r"\b(order|parcel|shipment)\b", lowered))
+    ):
         if policy_q and not has_order:
             return "kb"
         if bound or "my order" in lowered or "the order" in lowered or "order" in lowered:
@@ -142,8 +158,17 @@ def task_intent(text: str, verified: bool) -> str:
         return "kb"
     if re.search(r"\b(change|edit|modify)\b", lowered) and has_order:
         return "edit_order"
-    if re.search(r"\b(track|tracking|where is|where are)\b", lowered):
+    if re.search(r"\b(where did|where has|get to|gotten to)\b", lowered) and (has_order or verified):
+        return "tracking"
+    if re.search(r"\bwhere (?:is|are)\b", lowered):
+        if has_order or verified or re.search(r"\b(my order|the order|parcel|package|shipment|tracking number)\b", lowered):
+            return "tracking"
+        return "kb"
+    if re.search(r"\b(track|tracking)\b", lowered):
         if policy_q and not has_order and "my" not in lowered:
+            return "kb"
+        # "Tracking" inside a channel question is not an account lookup.
+        if not has_order and not verified and "my order" not in lowered and "the order" not in lowered:
             return "kb"
         return "tracking"
     if re.search(r"\bstatus\b", lowered):
@@ -155,6 +180,20 @@ def task_intent(text: str, verified: bool) -> str:
     return "kb"
 
 
+def safety_hit(text: str) -> bool:
+    lowered = (text or "").lower()
+    if any(phrase in lowered for phrase in HARM):
+        return True
+    for word in SAFETY:
+        if word in SAFETY_PREFIX:
+            if re.search(rf"\b{re.escape(word)}", lowered):
+                return True
+            continue
+        if re.search(rf"\b{re.escape(word)}\b", lowered):
+            return True
+    return False
+
+
 def read_message(text: str, *, verified: bool, offered_handoff: bool) -> Reading:
     raw = normalize_untrusted(text or "")
     injection = bool(INSTRUCT.search(raw))
@@ -164,7 +203,7 @@ def read_message(text: str, *, verified: bool, offered_handoff: bool) -> Reading
     query = substantive(raw) or raw
     lowered = raw.lower()
     handoff = None
-    if any(phrase in lowered for phrase in HARM) or any(word in lowered for word in SAFETY):
+    if safety_hit(lowered):
         handoff = "safety"
         intent = "safety"
     elif any(word in lowered for word in CHARGE):

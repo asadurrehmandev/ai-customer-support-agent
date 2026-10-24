@@ -64,6 +64,9 @@ class Hit:
     bm25: float
     fused: float
     rerank: float
+    bm25_rank: int = 0
+    dense_rank: int = 0
+    rrf: float = 0.0
 
     def public(self) -> dict:
         return {
@@ -75,6 +78,9 @@ class Hit:
             "bm25": round(float(self.bm25), 4),
             "fused": round(float(self.fused), 4),
             "rerank": round(float(self.rerank), 4),
+            "bm25_rank": int(self.bm25_rank),
+            "dense_rank": int(self.dense_rank),
+            "rrf": round(float(self.rrf), 6),
         }
 
 
@@ -129,6 +135,20 @@ class SearchIndex:
         order = np.argsort(-fused)[:take]
         documents = [self.chunks[int(i)].embed_text for i in order]
         rerank_scores = _rerank(query, documents)
+        section_bm25: dict[tuple[str, str], float] = {}
+        section_dense: dict[tuple[str, str], float] = {}
+        for index, chunk in enumerate(self.chunks):
+            key = (chunk.article_id, chunk.section)
+            section_bm25[key] = max(section_bm25.get(key, float("-inf")), float(bm25[index]))
+            section_dense[key] = max(section_dense.get(key, float("-inf")), float(cosine[index]))
+        bm25_order = sorted(section_bm25, key=lambda key: (-section_bm25[key], key))
+        dense_order = sorted(section_dense, key=lambda key: (-section_dense[key], key))
+        bm25_rank = {key: rank for rank, key in enumerate(bm25_order, 1)}
+        dense_rank = {key: rank for rank, key in enumerate(dense_order, 1)}
+        # Reciprocal rank fusion of the two retrievers. k=60 is the usual constant.
+        rrf_score = {
+            key: (1.0 / (60 + bm25_rank[key])) + (1.0 / (60 + dense_rank[key])) for key in bm25_rank
+        }
         ranked = []
         for local_index, chunk_index in enumerate(order):
             ranked.append(
@@ -159,6 +179,9 @@ class SearchIndex:
                     bm25=bm25_score,
                     fused=fused_score,
                     rerank=rerank,
+                    bm25_rank=bm25_rank.get(key, 0),
+                    dense_rank=dense_rank.get(key, 0),
+                    rrf=rrf_score.get(key, 0.0),
                 )
             )
             if len(hits) == k:

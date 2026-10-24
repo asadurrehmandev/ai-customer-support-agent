@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agent.llm import accept_paraphrase, phrase, safe_error
-from app.agent.read import ACCOUNT_INTENTS, POLICY_Q, Reading, read_message
+from app.agent.read import ACCOUNT_INTENTS, MUTATING_INTENTS, POLICY_Q, Reading, is_instructional, read_message
 from app.agent.respond import (
     ASK_IDENTITY,
     BULK_REFUSAL,
@@ -33,10 +33,10 @@ from app.commerce.routed import RoutedCommerce
 from app.config import Settings
 from app.handoff.zendesk import ZendeskClient
 from app.models import Conversation, Customer, Csat, Message, Ticket, TraceRecord
-from app.textutil import emails, extract_postcode, money, nid, normalize_postcode, order_numbers, utcnow
+from app.textutil import content_tokens, emails, extract_postcode, money, nid, normalize_postcode, order_numbers, utcnow
 
 ADDR_RE = re.compile(
-    r"\b(?:to|as)\s+(?P<line>\d[^,\n]{2,80}),\s*(?P<city>[^,\n]{2,40}),\s*(?P<region>[A-Za-z]{2})\s+(?P<zip>\d{5})\b"
+    r"(?:\b(?:to|as)\s+)?(?P<line>\d{1,6}\s+[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+){0,5}),\s*(?P<city>[A-Za-z][^,\n]{1,40}),\s*(?P<region>[A-Za-z]{2})\s+(?P<zip>\d{5})\b"
 )
 GIFT_RE = re.compile(r"gift note[:\s]+['\"](.+?)['\"]", re.I)
 QTY_RE = re.compile(r"quantity(?:\s+to|\s+of)?\s+(\d+)", re.I)
@@ -124,15 +124,22 @@ class Agent:
             trace["guardrails"].append({"rule": "vip", "decision": "handoff", "detail": HANDOFF_COPY["vip"]})
             return self._finish(session, conv, content=HANDOFF_COPY["vip"], outcome="handoff", status="handed_off", trace=trace, handoff_reason="vip", llm_key=llm_key, user_text=cleaned)
 
-        if attempted == "ok" and reading.intent == "kb" and previous_intent in ACCOUNT_INTENTS and not POLICY_Q.search(cleaned):
-            reading.intent = previous_intent
-            trace["intent"] = previous_intent
+        if attempted == "ok" and reading.intent == "kb" and not POLICY_Q.search(cleaned):
+            if previous_intent in ACCOUNT_INTENTS:
+                reading.intent = previous_intent
+                trace["intent"] = previous_intent
+            elif order_numbers(cleaned) and (_identity_only(cleaned) or re.search(r"\b(read|show|check|see|open|pull|about|details)\b", cleaned, re.I)):
+                reading.intent = "order_status"
+                trace["intent"] = reading.intent
 
         if reading.intent == "refuse_injection":
             return self._finish(session, conv, content=INJECTION_REFUSAL, outcome="refused", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
         if reading.intent == "refuse_bulk":
             trace["guardrails"].append({"rule": "cross_customer", "decision": "block", "detail": "Bulk customer data request."})
             return self._finish(session, conv, content=BULK_REFUSAL, outcome="refused", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
+        if reading.injection and reading.intent in MUTATING_INTENTS:
+            trace["guardrails"].append({"rule": "prompt_injection", "decision": "block", "detail": "An instruction was mixed with an account change. The change was not run."})
+            return self._finish(session, conv, content=INJECTION_REFUSAL, outcome="refused", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
 
         if reading.intent in ACCOUNT_INTENTS:
             target, blocked = self._target(conv, cleaned, trace)
@@ -162,12 +169,19 @@ class Agent:
             return self._finish(session, conv, content=body, outcome="answered", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
 
         trace["states"].append("retrieve")
-        query = self.index.prepare(reading.query or cleaned)
+        query = self.index.prepare(_followup_query(session, conv, reading.query or cleaned))
         hits = self.index.search(query, k=8)
         trace["retrieval"] = [hit.public() for hit in hits]
         directory = {email.lower() for email in session.scalars(select(Customer.email)).all() if email}
         level, drafted = compose_kb(query, hits, directory)
         trace["guardrails"].append({"rule": "grounding", "decision": level, "detail": f"Top cosine {hits[0].cosine:.3f}" if hits else "No chunks"})
+        if level == "partial" and drafted:
+            trace["states"].append("handoff")
+            trace["guardrails"].append({"rule": "constraint", "decision": "handoff", "detail": "The section does not state the asked constraint."})
+            return self._finish(session, conv, content=drafted, outcome="handoff", status="handed_off", trace=trace, handoff_reason="low_confidence", llm_key=llm_key, user_text=cleaned)
+        if level == "hedge" and drafted:
+            trace["states"].append("answer")
+            return self._finish(session, conv, content=drafted, outcome="hedged", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
         if level == "low":
             trace["states"].append("handoff")
             return self._finish(session, conv, content=LOW_CONFIDENCE, outcome="handoff", status="handed_off", trace=trace, handoff_reason="low_confidence", llm_key=llm_key, user_text=cleaned)
@@ -304,7 +318,7 @@ class Agent:
         trace["mode"] = mode
         trace["provider"] = provider
         final = content
-        if mode == "live" and key and handoff_reason is None and outcome in {"answered", "unknown", "refused"}:
+        if mode == "live" and key and handoff_reason is None and outcome in {"answered", "unknown", "refused", "hedged"}:
             final = self._phrase(final, trace, key, provider)
         if self._leaks(session, conv, final, user_text):
             final = SAFE_PII
@@ -312,7 +326,7 @@ class Agent:
             status = "resolved"
             handoff_reason = None
             trace["guardrails"].append({"rule": "pii_filter", "decision": "block", "detail": "Blocked a reply that contained another customer's data."})
-        if outcome == "unknown":
+        if outcome in {"unknown", "hedged"}:
             conv.offered_handoff = True
         else:
             conv.offered_handoff = False
@@ -485,14 +499,81 @@ def _reason(text: str) -> str:
 
 
 def _amount(text: str) -> int | None:
-    match = AMOUNT_RE.search(text or "")
-    if not match:
+    """The dollars tied to the refund, not the first dollar figure in the message.
+
+    A sentence that says to ignore a review threshold still names that
+    threshold. The figure next to "refund" is the request.
+    """
+    raw = text or ""
+    matches = list(AMOUNT_RE.finditer(raw))
+    if not matches:
         return None
-    return int(round(float(match.group(1)) * 100))
+    ignored_at: set[int] = set()
+    for cue in re.finditer(r"\b(?:ignore|disregard|skip|forget)\b", raw, re.I):
+        window = raw[cue.end() : cue.end() + 80]
+        cut = re.search(r"\brefund", window, re.I)
+        region = window[: cut.start()] if cut else window[:40]
+        found = AMOUNT_RE.search(region)
+        if found:
+            ignored_at.add(cue.end() + found.start())
+    usable = [match for match in matches if match.start() not in ignored_at]
+    pool = usable or matches
+
+    def threshold_mention(match) -> bool:
+        left = raw[max(0, match.start() - 40) : match.start()].lower()
+        return bool(re.search(r"\b(cap|threshold|limit|rule|review|ceiling)\b[^.]{0,40}$", left))
+
+    asked = [match for match in pool if not threshold_mention(match)] or pool
+    # Several refund figures in one message: the larger one is the request.
+    # A smaller figure must not be submitted while a larger one is ignored.
+    if len(asked) > 1:
+        asked = sorted(asked, key=lambda match: float(match.group(1)), reverse=True)
+        return int(round(float(asked[0].group(1)) * 100))
+    anchors = [match.start() for match in re.finditer(r"\brefund\w*\b", raw, re.I)]
+    if anchors:
+        asked = sorted(asked, key=lambda match: min(abs(match.start() - anchor) for anchor in anchors))
+    return int(round(float(asked[0].group(1)) * 100))
+
+
+_IDENTITY_GLUE = {
+    "fine", "ok", "okay", "alright", "right", "got", "correct", "sorry", "thanks",
+    "thank", "you", "please", "here", "hi", "hello", "email", "mail", "order",
+    "number", "postcode", "zip", "postal", "code", "address", "name", "is", "and",
+    "the", "a", "an", "my", "for", "on", "it", "its", "that", "this", "yes",
+    "yeah", "yep", "sure", "of", "to", "it's",
+}
+
+
+def _identity_only(text: str) -> bool:
+    """True when the message is just the factors, with no separate question."""
+    stripped = re.sub(r"\S+@\S+", " ", text or "")
+    stripped = re.sub(r"mh[-\s]?\d{5}", " ", stripped, flags=re.I)
+    stripped = re.sub(r"\b\d{5}(?:-\d{4})?\b", " ", stripped)
+    tokens = re.findall(r"[a-z0-9']+", stripped.lower())
+    return bool(tokens) and all(token in _IDENTITY_GLUE for token in tokens)
+
+
+def _followup_query(session: Session, conv, text: str) -> str:
+    """A short fragment keeps the previous customer question as context.
+
+    "and dryer?" does not name a topic on its own. A full question does, and
+    an earlier instruction is not context.
+    """
+    if len(content_tokens(text)) > 2 or order_numbers(text):
+        return text
+    rows = session.scalars(
+        select(Message).where(Message.conversation_id == conv.id, Message.role == "customer").order_by(Message.created_at)
+    ).all()
+    earlier = [row.content for row in rows if row.content.strip() != (text or "").strip()]
+    if not earlier or is_instructional(earlier[-1]):
+        return text
+    return f"{earlier[-1]} {text}"
 
 
 def _address(text: str) -> dict:
-    match = ADDR_RE.search(text or "")
+    # The order number is a digit run. It must not become the street.
+    scrubbed = re.sub(r"mh[-\s]?\d{5}", " ", text or "", flags=re.I)
+    match = ADDR_RE.search(scrubbed)
     if not match:
         return {}
     return {
@@ -531,7 +612,8 @@ def _tool_args(intent: str, number: str, text: str) -> dict:
 def metrics(session: Session) -> dict:
     conversations = session.scalars(select(Conversation)).all()
     closed = [row for row in conversations if row.status in {"resolved", "handed_off"}]
-    deflected = [row for row in closed if row.status == "resolved"]
+    hedged = [row for row in closed if row.outcome == "hedged"]
+    deflected = [row for row in closed if row.status == "resolved" and row.outcome != "hedged"]
     handed = [row for row in closed if row.status == "handed_off"]
     open_rows = [row for row in conversations if row.status == "open"]
     tickets = session.scalars(select(Ticket)).all()
@@ -549,6 +631,7 @@ def metrics(session: Session) -> dict:
         "open": len(open_rows),
         "closed": len(closed),
         "deflected": len(deflected),
+        "hedged": len(hedged),
         "handed_off": len(handed),
         "deflection_rate": (len(deflected) / len(closed)) if closed else None,
         "handoff_reasons": reasons,
@@ -558,8 +641,9 @@ def metrics(session: Session) -> dict:
         "csat_rate": (up / (up + down)) if (up + down) else None,
         "outcomes": outcomes,
         "definition": (
-            "Deflection rate is resolved conversations divided by resolved plus handed-off conversations. "
-            "Open conversations are excluded. Resolved includes answers, don't-know replies, and refusals. "
+            "Deflection rate is resolved conversations that are not hedged, divided by resolved plus handed-off conversations. "
+            "A hedged answer quotes a help-center section, says the match is uncertain, and offers a person. It is not counted as a clean deflection. "
+            "Open conversations are excluded. Resolved includes direct answers, don't-know replies, and refusals. "
             "CSAT is thumbs up divided by thumbs up plus thumbs down, only where a vote was recorded. "
             "Rates are null when the denominator is zero."
         ),

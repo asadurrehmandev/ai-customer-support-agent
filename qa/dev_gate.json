@@ -1,0 +1,1240 @@
+{
+  "purpose": "Development set for the answer gate. Not the sealed eval. Wording does not overlap the sealed set.",
+  "items": [
+    {
+      "id": "a001",
+      "question": "If checkout finishes before the early afternoon cutoff, does the Maine workshop send the parcel out that same business day?",
+      "expect": "answer",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [
+        "1pm",
+        "same day"
+      ],
+      "must_not": [
+        "next business day"
+      ]
+    },
+    {
+      "id": "a002",
+      "question": "I submitted the checkout after the afternoon cutoff. Does that parcel wait for the following business day?",
+      "expect": "answer",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [
+        "next business day"
+      ],
+      "must_not": [
+        "before 1pm"
+      ]
+    },
+    {
+      "id": "a003",
+      "question": "For a routine parcel crossing the lower 48, what business-day range should I plan on?",
+      "expect": "answer",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [
+        "3 to 5"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a004",
+      "question": "Which carriers move the ordinary domestic parcels?",
+      "expect": "answer",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [
+        "ups"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a005",
+      "question": "What is the fee for the slow truck option on a small basket?",
+      "expect": "answer",
+      "gold": [
+        "shipping-costs"
+      ],
+      "must_include": [
+        "$8"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a006",
+      "question": "At what merchandise subtotal, before tax, does standard postage fall to zero?",
+      "expect": "answer",
+      "gold": [
+        "shipping-costs"
+      ],
+      "must_include": [
+        "75"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a007",
+      "question": "What does rush postage cost, and is that rush option open for a post-office box?",
+      "expect": "answer",
+      "gold": [
+        "shipping-costs"
+      ],
+      "must_include": [
+        "$18",
+        "po box"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a008",
+      "question": "Which countries are currently on the destination list?",
+      "expect": "answer",
+      "gold": [
+        "international-shipping"
+      ],
+      "must_include": [
+        "canada",
+        "united states"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a009",
+      "question": "On a parcel headed to Vancouver, might an import charge be collected at the door?",
+      "expect": "answer",
+      "gold": [
+        "international-shipping"
+      ],
+      "must_include": [
+        "duties"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a010",
+      "question": "How wide is the business-day range for a Canadian delivery?",
+      "expect": "answer",
+      "gold": [
+        "international-shipping"
+      ],
+      "must_include": [
+        "7 to 12"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a011",
+      "question": "Can a skillet be sent to Mexico City, or is that outside the destination list?",
+      "expect": "answer",
+      "gold": [
+        "international-shipping"
+      ],
+      "must_include": [
+        "other countries"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a012",
+      "question": "Is Nigeria one of the places a pan can be mailed?",
+      "expect": "answer",
+      "gold": [
+        "international-shipping"
+      ],
+      "must_include": [
+        "other countries"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a013",
+      "question": "Once the workshop marks the parcel packed, is the ship-to line still editable?",
+      "expect": "answer",
+      "gold": [
+        "tracking-an-order"
+      ],
+      "must_include": [
+        "packed"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a014",
+      "question": "After the label exists, how long might the first carrier scan take to show up?",
+      "expect": "answer",
+      "gold": [
+        "tracking-an-order"
+      ],
+      "must_include": [
+        "24 hours"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a015",
+      "question": "Until which packing step can the ship-to line still be rewritten?",
+      "expect": "answer",
+      "gold": [
+        "change-address"
+      ],
+      "must_include": [
+        "packed"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a016",
+      "question": "Can this chat reroute a parcel the carrier has already accepted?",
+      "expect": "answer",
+      "gold": [
+        "change-address"
+      ],
+      "must_include": [
+        "cannot redirect"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a017",
+      "question": "How many hours after purchase is cancellation still open, assuming it has not left?",
+      "expect": "answer",
+      "gold": [
+        "cancel-order"
+      ],
+      "must_include": [
+        "24 hours"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a018",
+      "question": "If the parcel is already packed, is calling it off still possible?",
+      "expect": "answer",
+      "gold": [
+        "cancel-order"
+      ],
+      "must_include": [
+        "cannot be cancelled"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a019",
+      "question": "Can a final-sale piece be called off from the website?",
+      "expect": "answer",
+      "gold": [
+        "cancel-order",
+        "final-sale"
+      ],
+      "must_include": [
+        "cannot be cancelled"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a020",
+      "question": "During the first day, before packing, can I attach a note for the recipient and change a quantity?",
+      "expect": "answer",
+      "gold": [
+        "edit-order"
+      ],
+      "must_include": [
+        "gift note",
+        "24 hours"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a021",
+      "question": "Who handles replacing the piece with a different product?",
+      "expect": "answer",
+      "gold": [
+        "edit-order"
+      ],
+      "must_include": [
+        "specialist"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a022",
+      "question": "Is unused tableware allowed to come back inside the usual window?",
+      "expect": "answer",
+      "gold": [
+        "returns-overview"
+      ],
+      "must_include": [
+        "30 days",
+        "tableware"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a023",
+      "question": "If I want a different piece, do you swap it in place or do I purchase again?",
+      "expect": "answer",
+      "gold": [
+        "returns-overview",
+        "exchanges"
+      ],
+      "must_include": [
+        "new order"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a024",
+      "question": "Does the send-back clock start on the purchase date or on the delivery scan?",
+      "expect": "answer",
+      "gold": [
+        "return-window"
+      ],
+      "must_include": [
+        "delivery scan"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a025",
+      "question": "Are seconds eligible to be sent back?",
+      "expect": "answer",
+      "gold": [
+        "return-window",
+        "final-sale"
+      ],
+      "must_include": [
+        "cannot be returned"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a026",
+      "question": "Which account details have to be confirmed before a send-back can be opened?",
+      "expect": "answer",
+      "gold": [
+        "start-a-return"
+      ],
+      "must_include": [
+        "order number"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a027",
+      "question": "Who produces the send-back label, and is the credit released only after inspection?",
+      "expect": "answer",
+      "gold": [
+        "start-a-return"
+      ],
+      "must_include": [
+        "nothing is refunded"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a028",
+      "question": "After delivery is on the order, which payment method receives the money?",
+      "expect": "answer",
+      "gold": [
+        "refunds"
+      ],
+      "must_include": [
+        "original payment"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a029",
+      "question": "After the return is inspected, how many business days until the credit shows?",
+      "expect": "answer",
+      "gold": [
+        "refunds"
+      ],
+      "must_include": [
+        "5 to 7"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a030",
+      "question": "Above what amount does a person have to look at a refund request before it is sent?",
+      "expect": "answer",
+      "gold": [
+        "refunds"
+      ],
+      "must_include": [
+        "$75"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a031",
+      "question": "Can the credit be larger than the amount charged for the order?",
+      "expect": "answer",
+      "gold": [
+        "refunds"
+      ],
+      "must_include": [
+        "amount you paid"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a032",
+      "question": "Is an in-place swap offered, or only a fresh purchase after the original comes back?",
+      "expect": "answer",
+      "gold": [
+        "exchanges",
+        "returns-overview"
+      ],
+      "must_include": [
+        "do not process direct exchanges"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a033",
+      "question": "Samples and seconds: can they be sent back or called off?",
+      "expect": "answer",
+      "gold": [
+        "final-sale"
+      ],
+      "must_include": [
+        "cannot be returned or cancelled"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a034",
+      "question": "If a final-sale piece arrives broken, is the damage rule still available?",
+      "expect": "answer",
+      "gold": [
+        "final-sale"
+      ],
+      "must_include": [
+        "damaged"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a035",
+      "question": "How many days after delivery can breakage be reported?",
+      "expect": "answer",
+      "gold": [
+        "damaged-items"
+      ],
+      "must_include": [
+        "7 days"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a036",
+      "question": "Do pictures of the carton help a breakage review?",
+      "expect": "answer",
+      "gold": [
+        "damaged-items"
+      ],
+      "must_include": [
+        "photos"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a037",
+      "question": "One shipped piece never made it into the carton. What is the reporting limit?",
+      "expect": "answer",
+      "gold": [
+        "missing-items"
+      ],
+      "must_include": [
+        "7 days"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a038",
+      "question": "How many years do you stand behind a manufacturing flaw in the enamel?",
+      "expect": "answer",
+      "gold": [
+        "warranty"
+      ],
+      "must_include": [
+        "5 years"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a039",
+      "question": "Does that coverage survive a machine wash or a drop onto the floor?",
+      "expect": "answer",
+      "gold": [
+        "warranty"
+      ],
+      "must_include": [
+        "dishwasher",
+        "drop"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a040",
+      "question": "Should the iron pan be machine washed, or dried on the burner and wiped with oil?",
+      "expect": "answer",
+      "gold": [
+        "care-carbon-steel"
+      ],
+      "must_include": [
+        "by hand",
+        "dishwasher"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a041",
+      "question": "If eggs start clinging, what rebuilds the surface of the steel pan?",
+      "expect": "answer",
+      "gold": [
+        "care-carbon-steel"
+      ],
+      "must_include": [
+        "seasoning"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a042",
+      "question": "Should the flax cloth be laundered on a cool cycle and line dried?",
+      "expect": "answer",
+      "gold": [
+        "care-linen"
+      ],
+      "must_include": [
+        "cold",
+        "dryer"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a043",
+      "question": "If I want the cloth smooth, should the iron touch it while it is still damp?",
+      "expect": "answer",
+      "gold": [
+        "care-linen"
+      ],
+      "must_include": [
+        "damp"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a044",
+      "question": "Are creases in the flax treated as a defect?",
+      "expect": "answer",
+      "gold": [
+        "care-linen"
+      ],
+      "must_include": [
+        "wrinkles"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a045",
+      "question": "Is it safe to set an empty enamel vessel on a lit burner?",
+      "expect": "answer",
+      "gold": [
+        "care-enamel"
+      ],
+      "must_include": [
+        "empty"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a046",
+      "question": "What can happen if cold water hits a hot enameled surface?",
+      "expect": "answer",
+      "gold": [
+        "care-enamel"
+      ],
+      "must_include": [
+        "crack"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a047",
+      "question": "If the coating is shedding into supper, should I keep cooking in that pot?",
+      "expect": "answer",
+      "gold": [
+        "care-enamel",
+        "product-safety"
+      ],
+      "must_include": [
+        "flaking"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a048",
+      "question": "What are the two pantry prices, the monthly one and the yearly one?",
+      "expect": "answer",
+      "gold": [
+        "pantry-subscription"
+      ],
+      "must_include": [
+        "$34",
+        "$348"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a049",
+      "question": "Does the monthly pantry keep billing on the same calendar date until I end it?",
+      "expect": "answer",
+      "gold": [
+        "pantry-subscription"
+      ],
+      "must_include": [
+        "same date"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a050",
+      "question": "What merchant name appears on the card statement for a pantry charge?",
+      "expect": "answer",
+      "gold": [
+        "subscription-billing"
+      ],
+      "must_include": [
+        "marlow & hale"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a051",
+      "question": "Can this chat find the pantry plan once an order number and an email are confirmed?",
+      "expect": "answer",
+      "gold": [
+        "subscription-billing"
+      ],
+      "must_include": [
+        "order number"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a052",
+      "question": "If I end a monthly pantry before the renewal date, will it bill again?",
+      "expect": "answer",
+      "gold": [
+        "cancel-subscription"
+      ],
+      "must_include": [
+        "will not renew"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a053",
+      "question": "Who has to handle ending a prepaid yearly pantry?",
+      "expect": "answer",
+      "gold": [
+        "cancel-subscription"
+      ],
+      "must_include": [
+        "specialist"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a054",
+      "question": "Can a monthly pantry skip a single month if I write to the desk?",
+      "expect": "answer",
+      "gold": [
+        "pause-subscription"
+      ],
+      "must_include": [
+        "one month"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a055",
+      "question": "Are prepaid yearly pantries able to be paused?",
+      "expect": "answer",
+      "gold": [
+        "pause-subscription"
+      ],
+      "must_include": [
+        "cannot be paused"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a056",
+      "question": "May two offer codes be stacked on one checkout, or is a single code the limit?",
+      "expect": "answer",
+      "gold": [
+        "promo-codes"
+      ],
+      "must_include": [
+        "one promo code"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a057",
+      "question": "Can an offer code be attached after the checkout already exists?",
+      "expect": "answer",
+      "gold": [
+        "promo-codes"
+      ],
+      "must_include": [
+        "after an order is placed"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a058",
+      "question": "What dollar floor sends a trade order to the wholesale desk?",
+      "expect": "answer",
+      "gold": [
+        "wholesale"
+      ],
+      "must_include": [
+        "500"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a059",
+      "question": "Can an agent open any account, or only the one whose details I confirm?",
+      "expect": "answer",
+      "gold": [
+        "privacy"
+      ],
+      "must_include": [
+        "no other"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a060",
+      "question": "Do you sell the customer file to other companies?",
+      "expect": "answer",
+      "gold": [
+        "privacy"
+      ],
+      "must_include": [
+        "do not sell"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a061",
+      "question": "On which weekdays, and between which Eastern clock times, is a person at the desk?",
+      "expect": "answer",
+      "gold": [
+        "contact"
+      ],
+      "must_include": [
+        "monday",
+        "9am"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a062",
+      "question": "Which inbox reaches a person, besides this chat?",
+      "expect": "answer",
+      "gold": [
+        "contact"
+      ],
+      "must_include": [
+        "support@marlowandhale.example"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a063",
+      "question": "Is nickel present in the metal fitting on the kettle?",
+      "expect": "answer",
+      "gold": [
+        "materials"
+      ],
+      "must_include": [
+        "nickel"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a064",
+      "question": "Was lead used in the stoneware glaze?",
+      "expect": "answer",
+      "gold": [
+        "materials"
+      ],
+      "must_include": [
+        "lead-free"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a065",
+      "question": "What plant is the cloth woven from?",
+      "expect": "answer",
+      "gold": [
+        "materials"
+      ],
+      "must_include": [
+        "flax"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a066",
+      "question": "If a pan is cracked or deeply pitted, should I keep cooking in it?",
+      "expect": "answer",
+      "gold": [
+        "product-safety"
+      ],
+      "must_include": [
+        "stop using"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a067",
+      "question": "If a product hurt someone, do we keep chatting or does a person take over?",
+      "expect": "answer",
+      "gold": [
+        "product-safety"
+      ],
+      "must_include": [
+        "specialist"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a068",
+      "question": "If I open a dispute with the card issuer, what happens to the order?",
+      "expect": "answer",
+      "gold": [
+        "payment-disputes"
+      ],
+      "must_include": [
+        "pause"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a069",
+      "question": "Can chat reveal my sign-in secret, or do I use the reset link on the sign-in page?",
+      "expect": "answer",
+      "gold": [
+        "passwords"
+      ],
+      "must_include": [
+        "forgot-password"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a070",
+      "question": "Do the emailed stored-value cards have an end date?",
+      "expect": "answer",
+      "gold": [
+        "gift-cards"
+      ],
+      "must_include": [
+        "do not expire"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a071",
+      "question": "Can a stored-value card be cashed out?",
+      "expect": "answer",
+      "gold": [
+        "gift-cards"
+      ],
+      "must_include": [
+        "cash"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a072",
+      "question": "What December date is the mainland ground deadline for arrival before Christmas?",
+      "expect": "answer",
+      "gold": [
+        "holiday-cutoff"
+      ],
+      "must_include": [
+        "december 16"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a073",
+      "question": "The link on the sign-in page for a forgotten secret, does it stay valid for days or only a few hours?",
+      "expect": "answer",
+      "gold": [
+        "passwords"
+      ],
+      "must_include": [
+        "few hours"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a074",
+      "question": "A delivery question without opening a bank dispute: can this chat still trace it?",
+      "expect": "answer",
+      "gold": [
+        "payment-disputes"
+      ],
+      "must_include": [
+        "without a dispute"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a075",
+      "question": "Does one stored-value card leave a remainder on the card if the order is smaller?",
+      "expect": "answer",
+      "gold": [
+        "gift-cards"
+      ],
+      "must_include": [
+        "remainder"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a076",
+      "question": "Heat and the flax weave: why avoid the machine dryer?",
+      "expect": "answer",
+      "gold": [
+        "care-linen"
+      ],
+      "must_include": [
+        "heat weakens"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a077",
+      "question": "Bare stacking or a drop: can that chip the enamel?",
+      "expect": "answer",
+      "gold": [
+        "care-enamel"
+      ],
+      "must_include": [
+        "chip"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a078",
+      "question": "Annual pantry shipments, are they paid up front?",
+      "expect": "answer",
+      "gold": [
+        "pantry-subscription"
+      ],
+      "must_include": [
+        "prepaid"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a079",
+      "question": "Personal orders versus trade orders: which ones are prepaid?",
+      "expect": "answer",
+      "gold": [
+        "wholesale"
+      ],
+      "must_include": [
+        "personal orders are prepaid"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "a080",
+      "question": "Changing an order that contains more than one piece: is that still self-serve?",
+      "expect": "answer",
+      "gold": [
+        "edit-order"
+      ],
+      "must_include": [
+        "specialist"
+      ],
+      "must_not": []
+    },
+    {
+      "id": "n001",
+      "question": "Is the flax certified organic under GOTS?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n002",
+      "question": "Can I settle the balance with Venmo from this chat?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n003",
+      "question": "Can I book a cooking class inside the Maine workshop?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n004",
+      "question": "Do you engrave a monogram on the base of a pan?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n005",
+      "question": "Do you sell replacement knobs for the oven door?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n006",
+      "question": "Is there a referral credit when my sister places her own checkout?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n007",
+      "question": "Can I message the desk on WhatsApp?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n008",
+      "question": "Do you plant a tree for every parcel that leaves?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n009",
+      "question": "What is the VAT registration number I should give my accountant?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n010",
+      "question": "Do you offer net-30 invoicing on a household order?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n011",
+      "question": "Is a person available by phone on Saturday?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n012",
+      "question": "Do you insure the parcel for the full replacement value?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n013",
+      "question": "Is a restocking fee taken when a pan comes back?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n014",
+      "question": "Do pantry renewals earn loyalty points?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n015",
+      "question": "Is there a published size chart for the cloth napkins?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n016",
+      "question": "Are the pans coated with PFAS?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n017",
+      "question": "Can I book white-glove delivery up into the apartment?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n018",
+      "question": "Do you sell pet beds?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n019",
+      "question": "Can the balance be split with Shop Pay over four payments?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n020",
+      "question": "Is a workshop tour offered on Sunday?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n021",
+      "question": "Can you color-match a glaze that was discontinued?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n022",
+      "question": "Can I pay the Dutch oven with Klarna?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n023",
+      "question": "Do you sell a carbon-offset add-on at checkout?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n024",
+      "question": "Do you offer a knife-sharpening service?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n025",
+      "question": "Is there a kids' cooking set in the catalog?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "n026",
+      "question": "Can I pay the invoice in bitcoin?",
+      "expect": "abstain",
+      "gold": [],
+      "must_include": [],
+      "must_not": []
+    },
+    {
+      "id": "c001",
+      "question": "Does a parcel to Anchorage get that same 3 to 5 business day ground estimate as a mainland parcel?",
+      "expect": "caveat",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [],
+      "must_not": [
+        "anchorage gets 3 to 5"
+      ]
+    },
+    {
+      "id": "c002",
+      "question": "Is there a same-day hold for me at the airport after the workshop cutoff?",
+      "expect": "caveat",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [],
+      "must_not": [
+        "airport hold"
+      ]
+    },
+    {
+      "id": "c003",
+      "question": "Can the carbon pan stay in the oven at 450 degrees for an hour?",
+      "expect": "caveat",
+      "gold": [
+        "care-carbon-steel"
+      ],
+      "must_include": [],
+      "must_not": [
+        "450 degrees is safe"
+      ]
+    },
+    {
+      "id": "c004",
+      "question": "Does Honolulu receive the mainland ground transit time?",
+      "expect": "caveat",
+      "gold": [
+        "shipping-times"
+      ],
+      "must_include": [],
+      "must_not": [
+        "honolulu is 3 to 5"
+      ]
+    }
+  ]
+}

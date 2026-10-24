@@ -83,6 +83,10 @@ def accept_paraphrase(draft: str, model_text: str, source_titles: set[str]) -> s
     if uncertain:
         if "help center" not in lowered and "not covered" not in lowered and "don't know" not in lowered and "do not know" not in lowered:
             return "dropped_uncertainty"
+    if "not certain" in draft_lower and "not certain" not in lowered and "not sure" not in lowered and "might" not in lowered:
+        return "dropped_uncertainty"
+    if "specialist" in draft_lower and "specialist" not in lowered and "person" not in lowered:
+        return "dropped_handoff_offer"
     if "cancelled order" in draft.lower() and "cancel" not in lowered:
         return "dropped_cancellation"
     negative = any(token in draft.lower() for token in ["cannot", "can't", "outside", "not submitted", "do not", "don't"])

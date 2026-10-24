@@ -16,7 +16,7 @@ export function Shop() {
     document.body.appendChild(script);
     return () => {
       script.remove();
-      document.querySelector("[data-keel-widget]")?.remove();
+      document.querySelectorAll("[data-keel-widget]").forEach((node) => node.remove());
     };
   }, []);
 

@@ -305,11 +305,13 @@ def search_kb(body: SearchIn, request: Request, _: None = Depends(require_consol
         raise HTTPException(400, "Query is empty.")
     query = request.app.state.index.prepare(body.q.strip())
     hits = request.app.state.index.search(query, k=5)
-    from app.kb.relevance import best_band, hit_band, overlap_count
+    from app.kb.relevance import decide, hit_band, overlap_count
 
+    decision = decide(query, hits) if hits else None
     return {
         "q": body.q.strip(),
-        "band": best_band(query, hits) if hits else "none",
+        "band": decision.level if decision else "none",
+        "probability": None if decision is None or decision.probability is None else round(decision.probability, 4),
         "hits": [
             {**hit.public(), "overlap": overlap_count(query, f"{hit.title} {hit.section} {hit.text}"), "gate": hit_band(query, hit)}
             for hit in hits

@@ -82,9 +82,10 @@ def normalize_postcode(value: str | None) -> str | None:
     return digits[:5]
 
 
-# A new ship-to line is not the postcode on the account.
+# A new ship-to line is not the postcode on the account. The street does not
+# have to be introduced with "to" or "as".
 _DESTINATION_RE = re.compile(
-    r"\b(?:to|as)\s+\d[^,\n]{2,80},\s*[^,\n]{2,40},\s*[A-Za-z]{2}\s+\d{5}\b"
+    r"(?:\b(?:to|as)\s+)?\d[^,\n]{2,80},\s*[^,\n]{2,40},\s*[A-Za-z]{2}\s+\d{5}\b"
 )
 
 
