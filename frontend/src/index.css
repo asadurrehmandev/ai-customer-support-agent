@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
+  --color-canvas: var(--c-canvas);
+  --color-sheet: var(--c-sheet);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-yellow: var(--c-yellow);
+  --color-pine: var(--c-pine);
+  --color-foam: var(--c-foam);
+  --color-danger: var(--c-danger);
+  --color-ok: var(--c-ok);
+}
+
+:root {
+  color-scheme: light;
+  --c-canvas: #e4e7e2;
+  --c-sheet: #f4f6f1;
+  --c-ink: #141816;
+  --c-muted: #3c4a43;
+  --c-line: #c5ccc4;
+  --c-yellow: #efe36a;
+  --c-pine: #14332c;
+  --c-foam: #e7efe9;
+  --c-danger: #7c241c;
+  --c-ok: #1b5c42;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --c-canvas: #101412;
+  --c-sheet: #1a201c;
+  --c-ink: #e8ece4;
+  --c-muted: #b7c3b9;
+  --c-line: #313a34;
+  --c-yellow: #d6e36a;
+  --c-pine: #1c332c;
+  --c-foam: #e7efe9;
+  --c-danger: #f0b4a8;
+  --c-ok: #9ddec0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-canvas);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--c-yellow);
+  color: #141816;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-yellow);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-color: var(--c-line) transparent;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}

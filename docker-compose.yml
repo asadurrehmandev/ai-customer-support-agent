@@ -1,0 +1,27 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8841:8841"
+    environment:
+      KEEL_DATABASE_URL: sqlite:////data/keel.db
+      FASTEMBED_CACHE_PATH: /var/cache/fastembed
+      KEEL_REFUND_THRESHOLD_CENTS: "7500"
+    volumes:
+      - keel-data:/data
+      - keel-models:/var/cache/fastembed
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8842:80"
+    depends_on:
+      - api
+
+volumes:
+  keel-data:
+  keel-models:

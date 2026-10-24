@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.cache/
+node_modules/
+dist/
+backend/data/*.db
+backend/data/*.db-*
+backend/data/corpus/
+*.egg-info/
+.DS_Store
+.env
+qa/eval_results.json
+.impeccable/
