@@ -4,6 +4,15 @@ Keel is a first-line customer support agent for a shop. The demo tenant is **Mar
 
 The dashboard is the agent console: live conversations, the handoff inbox, a per-reply trace, and metrics counted from the rows in the database.
 
+## Live demo
+
+**https://keel-demo-tunnel.asadurrehman-gd.workers.dev** (sign in with `keel-demo` / `keel-demo`; the credentials are printed on the login page).
+
+- **Shop with the chat widget:** `/shop`. Click **Help** and try `how much is ground shipping`, `Status of MH-31009` then `MH-31009, email elena.voss@example.com`, or `Refund order MH-31004. Email amira.hassan@example.com`.
+- **Agent console:** `/`. The console keeps its own demo sign-in; the password is `marlow-hale` (shown on its card).
+
+The hosted copy runs in Demo mode: no hosted model is called, and a session API key pasted in the console is not forwarded on the public demo. Replies are drafted from the help center and the local SQLite shop described below. The whole site sits behind the demo login because the console password is a public default. It is a shared demo: orders, refunds, conversations, and tickets reset to the seed every 30 minutes, and the **Reset demo** button in the corner does it on demand.
+
 ## Features
 
 - Help-center answers with inline citations. Articles are ingested from Markdown, HTML, and PDF. Retrieval is hybrid: BM25 plus local `bge-small` embeddings over small passages, then a cross-encoder rerank, then the quote is the span inside that section that matches the question's cutoff, amount, or place. The answer gate is a decision rule fit on a dev set: cross-encoder score, the gap to the next section, BM25/dense agreement, and a heading match. A mid score can quote the section with a hedge and an offer to reach a person. A hedge is not counted as a clean deflection. If the section does not mention the constraint, Keel quotes what the section does say and hands off.
@@ -57,6 +66,17 @@ States, in order: read, guard, verify, tool, retrieve, answer or handoff.
 Money is stored in cents. The refund review threshold is `KEEL_REFUND_THRESHOLD_CENTS` (default 7500). The cap is applied inside `can_refund` on the tool call. The customer's wording is not an input: "ignore the cap", "counsel says", and "manager approved" do not change `threshold_cents`. `prior_refund_cents` adds every refund row on that order number, from any conversation. `prior + amount` above the amount paid is `exceeds_paid` and writes nothing. `prior + amount` above the threshold is `refund_threshold` and hands off, also without a row. Exactly 7500 cents is allowed. `claim_money_action` allows one of refund, cancel, or subscription cancel per customer message id, and it takes that slot before the policy decision, so a denied over-cap call still blocks a second payout in the same message. The engine passes that message id as `request_id`. Direct tool tests in `backend/tests/test_money_guard.py` call `LocalCommerce` and never go through the planner.
 
 Identity is the order number plus the email or the postcode stored at checkout (`orders.identity_postcode`). `update_address` changes the ship-to ZIP and does not change `identity_postcode`. `proof_postcode` drops a ZIP that appears only as the new street in that same message. A labeled postcode that merely repeats that destination ZIP is not proof. The email on the order is unchanged by an address edit.
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Shop widget with a cited answer](qa/screenshots/shop-widget-reply-light-1440.png) | ![Agent console with the per-reply trace](qa/screenshots/console-light-1440.png) |
+| Shop widget: a help-center answer quoted with its citation | Console: conversation and per-reply trace (path, guardrails, retrieval, tools) |
+| ![Handoff inbox](qa/screenshots/inbox-light-1440.png) | ![Metrics](qa/screenshots/metrics-light-1440.png) |
+| Handoff inbox: reason, customer, sentiment, desk | Metrics counted from rows in the database |
+| ![Knowledge base](qa/screenshots/knowledge-light-1440.png) | ![Mobile thread](qa/screenshots/thread-mobile-390.png) |
+| Help-center articles and search | Console thread on a 390 px screen |
 
 ## How to run
 

@@ -42,7 +42,7 @@ Fresh chat.
 
 The reply is: "I can look that up after you confirm the order number and the email address or postcode on the order." No street is shown.
 
-3. Type `Email elena.voss@example.com` and click **Send**.
+3. Type `MH-31009, email elena.voss@example.com` and click **Send**. (Repeat the order number: an email on its own is not tied to the order asked about in the previous message.)
 
 The reply names order MH-31009 and the ship-to line **14 Exchange Street**.
 
