@@ -18,7 +18,7 @@ from app.kb.ingest import seed_knowledge
 from app.kb.relevance import legacy_level
 from app.seed.store import seed_store
 
-ROOT = Path("/workspace")
+ROOT = Path(__file__).resolve().parents[2]
 DEV = ROOT / "qa" / "dev_gate.json"
 HASH_FILE = ROOT / "qa" / "DEV_GATE.sha256"
 MODEL = ROOT / "qa" / "dev_gate_model.json"

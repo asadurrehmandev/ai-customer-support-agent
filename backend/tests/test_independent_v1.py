@@ -22,7 +22,7 @@ from app.kb.ingest import seed_knowledge
 from app.models import Customer, Order, ReturnRequest, Subscription
 from app.seed.store import seed_store
 
-ROOT = Path("/workspace")
+ROOT = Path(__file__).resolve().parents[2]
 SUITE = ROOT / "qa" / "independent_v1.json"
 HASH_FILE = ROOT / "qa" / "INDEPENDENT_V1.sha256"
 RAW = ROOT / "qa" / "independent_v1_results.json"

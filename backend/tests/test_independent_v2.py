@@ -19,7 +19,7 @@ from app.kb.index import SearchIndex
 from app.kb.ingest import seed_knowledge
 from app.seed.store import seed_store
 
-ROOT = Path("/workspace")
+ROOT = Path(__file__).resolve().parents[2]
 SUITE = ROOT / "qa" / "independent_v2.json"
 HASH_FILE = ROOT / "qa" / "INDEPENDENT_V2.sha256"
 RAW = ROOT / "qa" / "independent_v2_results.json"

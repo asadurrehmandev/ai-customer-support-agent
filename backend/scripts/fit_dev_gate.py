@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-os.environ.setdefault("FASTEMBED_CACHE_PATH", "/workspace/.cache/fastembed")
+os.environ.setdefault("FASTEMBED_CACHE_PATH", str(Path(__file__).resolve().parents[2] / ".cache" / "fastembed"))
 
 from app.agent.respond import compose_kb
 from app.db import configure, init_schema, session
@@ -19,7 +19,7 @@ from app.kb.relevance import feature_vector, legacy_level, load_model
 from app.kb import relevance
 from app.seed.store import seed_store
 
-ROOT = Path("/workspace")
+ROOT = Path(__file__).resolve().parents[2]
 DEV = ROOT / "qa" / "dev_gate.json"
 MODEL = ROOT / "qa" / "dev_gate_model.json"
 REPORT = ROOT / "qa" / "dev_gate_report.md"
