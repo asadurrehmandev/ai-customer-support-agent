@@ -17,9 +17,9 @@ from app.kb.ingest import ingest_file, seed_knowledge
 from app.models import Customer, Order, ReturnRequest
 from app.seed.store import seed_store
 
-HELD_OUT = Path("/workspace/qa/heldout.json")
-REPORT = Path("/workspace/qa/heldout-report.md")
-RAW = Path("/workspace/qa/eval_results.json")
+HELD_OUT = Path(__file__).resolve().parents[2] / "qa" / "heldout.json"
+REPORT = Path(__file__).resolve().parents[2] / "qa" / "heldout-report.md"
+RAW = Path(__file__).resolve().parents[2] / "qa" / "eval_results.json"
 TITLE_TO_ID = {row["title"]: row["id"] for row in articles()}
 
 

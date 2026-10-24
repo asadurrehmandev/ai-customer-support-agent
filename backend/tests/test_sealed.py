@@ -22,10 +22,10 @@ from app.models import Customer, Order, ReturnRequest
 from app.seed.store import seed_store
 from app.kb.ingest import seed_knowledge
 
-SEALED = Path("/workspace/qa/sealed.json")
-HASH_FILE = Path("/workspace/qa/SEALED.sha256")
-REPORT = Path("/workspace/qa/REPORT.md")
-RAW = Path("/workspace/qa/sealed_results.json")
+SEALED = Path(__file__).resolve().parents[2] / "qa" / "sealed.json"
+HASH_FILE = Path(__file__).resolve().parents[2] / "qa" / "SEALED.sha256"
+REPORT = Path(__file__).resolve().parents[2] / "qa" / "REPORT.md"
+RAW = Path(__file__).resolve().parents[2] / "qa" / "sealed_results.json"
 TITLE_TO_ID = {row["title"]: row["id"] for row in articles()}
 
 
