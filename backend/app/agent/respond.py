@@ -2,12 +2,16 @@
 
 import re
 
-from app.agent.read import is_instructional
-from app.kb.relevance import best_band, overlap_count
+from app.agent.read import INSTRUCT, is_instructional, normalize_untrusted
+from app.kb.relevance import best_band
 
 DONT_KNOW = (
-    "I don't have that in the Marlow & Hale help center, so I won't guess. "
+    "That is not covered in the Marlow & Hale help center, so I won't guess. "
     "I can connect you with a specialist if you want."
+)
+SWITCH = (
+    "This conversation is already verified for one order. "
+    "I can't switch it to another customer."
 )
 LOW_CONFIDENCE = (
     "I'm not confident the help center answers this, so I'm handing the conversation to a specialist instead of guessing."
@@ -56,7 +60,10 @@ def with_citation(message: str, tool: str, code: str, reason: str) -> str:
     if chosen is None or "§" in message:
         return message
     title, section = chosen
-    return f"{message.rstrip()} {cite(title, section)}"
+    body = message.rstrip()
+    if body.startswith(("I ", "On the ", "The Hale", "Order ", "There is")):
+        return f"{body} {cite(title, section)}"
+    return f"Here is the rule that applies. \"{body}\" {cite(title, section)}"
 
 
 def _citation(tool: str, code: str, reason: str):
@@ -94,40 +101,70 @@ def _citation(tool: str, code: str, reason: str):
 def compose_kb(query: str, hits: list, directory_emails: set[str]) -> tuple[str, str | None]:
     if not hits:
         return "none", None
+    picked = pick_quote(query, hits, directory_emails)
+    if picked is not None:
+        sentence, hit = picked
+        return "answer", f"{_lead(query)} \"{sentence}\" {cite(hit.title, hit.section)}"
     level = best_band(query, hits)
-    if level == "none":
-        return "none", None
     if level == "low":
         return "low", None
-    ranked: list[tuple[int, float, str, object]] = []
-    for hit in hits:
-        for sentence in _sentences(hit.text):
-            if not _sentence_allowed(sentence, directory_emails):
-                continue
-            body = overlap_count(query, sentence)
-            title = overlap_count(query, f"{hit.title} {hit.section}")
-            ranked.append((body + 2 * title, hit.cosine, sentence, hit))
-    ranked.sort(key=lambda row: (-row[0], -row[1]))
-    chosen = []
-    seen = set()
-    for overlap, cosine, sentence, hit in ranked:
-        if overlap < 2 and cosine < 0.74:
-            continue
-        if sentence in seen:
-            continue
-        seen.add(sentence)
-        chosen.append((sentence, hit))
-        if len(chosen) == 2:
-            break
-    if not chosen:
-        return ("low", None) if level == "answer" else ("none", None)
-    text = " ".join(f"{sentence} {cite(hit.title, hit.section)}" for sentence, hit in chosen)
-    return "answer", text
+    return "none", None
+
+
+def pick_quote(query: str, hits: list, directory_emails: set[str]):
+    """Quote the winning section, not a second article that merely shares a word.
+
+    A duration question can quote the top section when that section states a
+    number of days or hours. Other paraphrases still have to clear the gate.
+    """
+    from app.kb.relevance import _DURATION_A, _DURATION_Q, hit_band
+
+    answer_hits = [hit for hit in hits if hit_band(query, hit) == "answer"]
+    chosen = max(answer_hits, key=lambda hit: hit.rerank) if answer_hits else None
+    if chosen is None and hits and _DURATION_Q.search(query or "") and _DURATION_A.search(hits[0].text or ""):
+        adjusted = hits[0].rerank + 6.0
+        cosine = hits[0].cosine
+        if adjusted >= 1.0 or (adjusted >= -1.0 and cosine >= 0.70) or (adjusted >= 0.5 and cosine >= 0.62):
+            chosen = hits[0]
+    if chosen is None:
+        return None
+    text = _section_quote(chosen.text, directory_emails)
+    if not text:
+        return None
+    return text, chosen
+
+
+def _section_quote(text: str, directory_emails: set[str]) -> str | None:
+    sentences = [sentence for sentence in quotable_sentences(text) if _sentence_allowed(sentence, directory_emails)]
+    if not sentences:
+        return None
+    return " ".join(sentence if sentence.endswith(".") else f"{sentence}." for sentence in sentences)
+
+
+def _lead(query: str) -> str:
+    lowered = (query or "").lower()
+    if any(phrase in lowered for phrase in ("how long", "how many", "window", "when can", "deadline")):
+        return "Here is the window from the help center."
+    if any(phrase in lowered for phrase in ("how much", "cost", "price", "fee", "charge")):
+        return "Here is the figure from the help center."
+    if lowered.startswith("how ") or " how " in f" {lowered} ":
+        return "Here is how the help center describes it."
+    return "Here is what the help center says."
+
+
+def quotable_sentences(text: str) -> list[str]:
+    cleaned = INSTRUCT.sub(". ", normalize_untrusted(text or ""))
+    parts = re.split(r"(?<=[.])\s+", cleaned.strip())
+    kept = []
+    for part in parts:
+        sentence = part.strip(" .")
+        if sentence and not is_instructional(sentence):
+            kept.append(sentence if sentence.endswith(".") else sentence)
+    return kept
 
 
 def _sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.])\s+", (text or "").strip())
-    return [part.strip() for part in parts if part.strip()]
+    return quotable_sentences(text)
 
 
 def _sentence_allowed(sentence: str, directory_emails: set[str]) -> bool:

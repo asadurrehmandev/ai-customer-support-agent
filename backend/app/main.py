@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from app.agent.engine import Agent
 from app.api.routes import router
@@ -16,7 +16,7 @@ from app.config import DATA_DIR, Settings
 from app.db import configure, init_schema, session
 from app.kb.index import SearchIndex
 from app.kb.ingest import seed_knowledge
-from app.models import Article, Conversation, Order
+from app.models import Article, Chunk, Conversation, Order
 from app.seed.store import seed_store
 from app.seed.traffic import seed_traffic
 from app.textutil import redact
@@ -51,6 +51,11 @@ async def lifespan(app: FastAPI):
     try:
         if not db.scalar(select(func.count()).select_from(Order)):
             seed_store(db)
+        sample = db.scalar(select(Chunk.embed_text).limit(1))
+        if sample and not str(sample).startswith("v2\n"):
+            db.execute(delete(Chunk))
+            db.execute(delete(Article))
+            db.commit()
         if not db.scalar(select(func.count()).select_from(Article)):
             seed_knowledge(db, DATA_DIR / "corpus")
         index = SearchIndex()

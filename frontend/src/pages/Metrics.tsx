@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMetrics, type Metrics as MetricsBody } from "../api.ts";
+import { Empty } from "../Empty.tsx";
 
 export function Metrics() {
   const [data, setData] = useState<MetricsBody | null>(null);
@@ -22,7 +23,12 @@ export function Metrics() {
         </p>
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
         {data === null && !error ? <p className="mt-4 text-sm text-muted">Loading metrics</p> : null}
-        {data ? (
+        {data && data.conversations === 0 ? (
+          <div className="mt-6">
+            <Empty title="No conversations stored">Deflection and CSAT are counted from rows in this database. There are none yet, so those rates are not computed.</Empty>
+          </div>
+        ) : null}
+        {data && data.conversations > 0 ? (
           <>
             <table className="mt-6 w-full border-collapse text-sm">
               <caption className="mb-2 text-left font-bold">Deflection</caption>

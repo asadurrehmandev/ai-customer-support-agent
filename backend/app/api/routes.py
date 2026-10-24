@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from app.agent.engine import metrics, record_csat
+from app.auth import COOKIE, MAX_AGE, require_console, require_webhook, require_widget_origin, sign_session
 from app.db import session
 from app.kb.ingest import ingest_file
 from app.models import Article, Chunk, Conversation, Csat, Message, Order, Ticket, TraceRecord
@@ -39,6 +40,10 @@ class CsatIn(BaseModel):
 
 class SearchIn(BaseModel):
     q: str
+
+
+class LoginIn(BaseModel):
+    password: str
 
 
 def _agent(request: Request):
@@ -84,8 +89,43 @@ def health(request: Request):
         db.close()
 
 
+@router.post("/auth/login")
+def login(body: LoginIn, request: Request, response: Response):
+    settings = request.app.state.settings
+    if not hmac_equal(body.password, settings.console_password):
+        raise HTTPException(401, "That password does not match.")
+    response.set_cookie(
+        COOKIE,
+        sign_session(settings.session_secret),
+        max_age=MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return {"ok": True}
+
+
+@router.post("/auth/logout")
+def logout(response: Response):
+    response.delete_cookie(COOKIE, path="/")
+    return {"ok": True}
+
+
+@router.get("/auth/session")
+def auth_session(request: Request):
+    require_console(request)
+    return {"ok": True}
+
+
+def hmac_equal(left: str, right: str) -> bool:
+    import hmac
+
+    return hmac.compare_digest(left.encode(), right.encode())
+
+
 @router.post("/chat")
 def chat(body: ChatIn, request: Request, x_keel_llm_key: str | None = Header(default=None)):
+    require_widget_origin(request)
     db = _db()
     try:
         result = _agent(request).handle(
@@ -105,7 +145,13 @@ def chat(body: ChatIn, request: Request, x_keel_llm_key: str | None = Header(def
 
 
 @router.post("/channels/email")
-def email_in(body: EmailIn, request: Request, x_keel_llm_key: str | None = Header(default=None)):
+async def email_in(request: Request, x_keel_llm_key: str | None = Header(default=None)):
+    raw = await request.body()
+    require_webhook(request.app.state.settings.email_webhook_secret, raw, request.headers.get("x-keel-signature"))
+    try:
+        body = EmailIn.model_validate_json(raw)
+    except Exception as exc:
+        raise HTTPException(400, "Email payload is not valid JSON.") from exc
     if not body.text.strip():
         raise HTTPException(400, "Email body is empty.")
     db = _db()
@@ -126,7 +172,7 @@ def email_in(body: EmailIn, request: Request, x_keel_llm_key: str | None = Heade
 
 
 @router.get("/conversations")
-def list_conversations():
+def list_conversations(_: None = Depends(require_console)):
     db = _db()
     try:
         rows = db.scalars(select(Conversation).order_by(Conversation.updated_at.desc())).all()
@@ -136,7 +182,7 @@ def list_conversations():
 
 
 @router.get("/conversations/{conversation_id}")
-def get_conversation(conversation_id: str):
+def get_conversation(conversation_id: str, _: None = Depends(require_console)):
     db = _db()
     try:
         row = db.get(Conversation, conversation_id)
@@ -169,7 +215,8 @@ def get_conversation(conversation_id: str):
 
 
 @router.post("/conversations/{conversation_id}/csat")
-def csat(conversation_id: str, body: CsatIn):
+def csat(conversation_id: str, body: CsatIn, request: Request):
+    require_widget_origin(request)
     db = _db()
     try:
         row = record_csat(db, conversation_id, body.vote)
@@ -183,7 +230,7 @@ def csat(conversation_id: str, body: CsatIn):
 
 
 @router.get("/inbox")
-def inbox():
+def inbox(_: None = Depends(require_console)):
     db = _db()
     try:
         rows = db.scalars(select(Ticket).order_by(Ticket.created_at.desc())).all()
@@ -197,7 +244,7 @@ def inbox():
 
 
 @router.post("/inbox/{ticket_id}/handle")
-def handle_ticket(ticket_id: str):
+def handle_ticket(ticket_id: str, _: None = Depends(require_console)):
     db = _db()
     try:
         ticket = db.get(Ticket, ticket_id)
@@ -211,7 +258,7 @@ def handle_ticket(ticket_id: str):
 
 
 @router.get("/metrics")
-def get_metrics():
+def get_metrics(_: None = Depends(require_console)):
     db = _db()
     try:
         return metrics(db)
@@ -220,7 +267,7 @@ def get_metrics():
 
 
 @router.get("/kb/articles")
-def list_articles():
+def list_articles(_: None = Depends(require_console)):
     db = _db()
     try:
         rows = db.scalars(select(Article).order_by(Article.title)).all()
@@ -233,7 +280,7 @@ def list_articles():
 
 
 @router.get("/kb/articles/{article_id}")
-def get_article(article_id: str):
+def get_article(article_id: str, _: None = Depends(require_console)):
     db = _db()
     try:
         row = db.get(Article, article_id)
@@ -253,24 +300,25 @@ def get_article(article_id: str):
 
 
 @router.post("/kb/search")
-def search_kb(body: SearchIn, request: Request):
+def search_kb(body: SearchIn, request: Request, _: None = Depends(require_console)):
     if not body.q.strip():
         raise HTTPException(400, "Query is empty.")
-    hits = request.app.state.index.search(body.q.strip(), k=5)
-    from app.kb.relevance import band, best_band, overlap_count
+    query = request.app.state.index.prepare(body.q.strip())
+    hits = request.app.state.index.search(query, k=5)
+    from app.kb.relevance import best_band, hit_band, overlap_count
 
     return {
         "q": body.q.strip(),
-        "band": best_band(body.q, hits) if hits else "none",
+        "band": best_band(query, hits) if hits else "none",
         "hits": [
-            {**hit.public(), "overlap": overlap_count(body.q, f"{hit.title} {hit.section} {hit.text}"), "gate": band(hit.cosine, overlap_count(body.q, f"{hit.title} {hit.section} {hit.text}"))}
+            {**hit.public(), "overlap": overlap_count(query, f"{hit.title} {hit.section} {hit.text}"), "gate": hit_band(query, hit)}
             for hit in hits
         ],
     }
 
 
 @router.post("/kb/documents")
-async def upload_document(request: Request, file: UploadFile = File(...)):
+async def upload_document(request: Request, file: UploadFile = File(...), _: None = Depends(require_console)):
     name = file.filename or "upload.md"
     suffix = Path(name).suffix.lower()
     if suffix not in {".md", ".markdown", ".html", ".htm", ".pdf"}:
@@ -319,7 +367,7 @@ def fixtures():
 
 
 @router.get("/events")
-async def events():
+async def events(_: None = Depends(require_console)):
     async def stream():
         import asyncio
 

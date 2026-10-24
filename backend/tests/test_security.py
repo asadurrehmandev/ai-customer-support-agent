@@ -165,6 +165,19 @@ def test_final_sale_return_denied(world):
     assert world[0].scalar(select(ReturnRequest).where(ReturnRequest.order_number == "MH-31011")) is None
 
 
+def test_split_refunds_cannot_sneak_past_the_threshold(world):
+    first = ask(world, "Refund $40 on MH-31018. Email elena.voss@example.com")
+    assert first["handoff"] is None
+    row = world[0].scalar(select(ReturnRequest).where(ReturnRequest.order_number == "MH-31018", ReturnRequest.kind == "refund"))
+    assert row is not None
+    assert row.amount_cents == 4000
+    second = ask(world, "Also refund $36 on MH-31018. Email elena.voss@example.com")
+    assert second["handoff"]["reason"] == "refund_threshold"
+    rows = world[0].scalars(select(ReturnRequest).where(ReturnRequest.order_number == "MH-31018", ReturnRequest.kind == "refund")).all()
+    assert len(rows) == 1
+    assert rows[0].amount_cents == 4000
+
+
 def test_zendesk_client_is_used_when_configured(world, respx_mock):
     _db, agent, _path = world
     agent.settings.zendesk_subdomain = "marlow"

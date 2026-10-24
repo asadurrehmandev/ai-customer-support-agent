@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     anthropic_model: str = "claude-sonnet-4-5"
     openai_model: str = "gpt-4o-mini"
+    console_password: str = "marlow-hale"
+    session_secret: str = "keel-demo-session"
+    email_webhook_secret: str = "keel-demo-email"
+    widget_origins: str = ""
 
     @property
     def shopify_configured(self) -> bool:

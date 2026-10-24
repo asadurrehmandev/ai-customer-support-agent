@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Chunk
+from app.textutil import correct_tokens, fold_numbers
 
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
@@ -82,6 +83,11 @@ class SearchIndex:
         self.chunks: list[Chunk] = []
         self.matrix: np.ndarray | None = None
         self._bm25: BM25Okapi | None = None
+        self.vocab: set[str] = set()
+
+    def prepare(self, query: str) -> str:
+        folded = fold_numbers(query or "")
+        return correct_tokens(folded, self.vocab)
 
     def load_or_build(self, session: Session) -> None:
         rows = list(session.scalars(select(Chunk).order_by(Chunk.article_id, Chunk.position)).all())
@@ -92,6 +98,10 @@ class SearchIndex:
                 row.embedding = np.asarray(vector, dtype=np.float32).tobytes()
             session.commit()
         self.chunks = rows
+        self.vocab = set()
+        for row in rows:
+            self.vocab.update(tokenize(row.text))
+            self.vocab.update(tokenize(row.title))
         if not rows:
             self.matrix = None
             self._bm25 = None
@@ -103,6 +113,7 @@ class SearchIndex:
     def search(self, query: str, k: int = 5) -> list[Hit]:
         if not self.chunks or self.matrix is None or self._bm25 is None:
             return []
+        query = self.prepare(query)
         tokens = tokenize(query)
         bm25 = np.asarray(self._bm25.get_scores(tokens if tokens else [""]), dtype=np.float64)
         query_vector = embed_query(query)
@@ -112,7 +123,9 @@ class SearchIndex:
         bm25_norm = bm25 / (bm25.max() + 1e-9) if float(bm25.max()) > 0 else bm25
         cosine_norm = (cosine + 1) / 2
         fused = 0.45 * bm25_norm + 0.55 * cosine_norm
-        take = min(20, len(self.chunks))
+        # The help center is small enough to rerank the fused pool in full.
+        # A 20-hit cutoff was dropping the passage that actually answered.
+        take = len(self.chunks) if len(self.chunks) <= 400 else 80
         order = np.argsort(-fused)[:take]
         documents = [self.chunks[int(i)].embed_text for i in order]
         rerank_scores = _rerank(query, documents)
@@ -129,8 +142,13 @@ class SearchIndex:
             )
         ranked.sort(key=lambda item: -item[0])
         hits: list[Hit] = []
-        for rerank, chunk_index, fused_score, bm25_score, cosine_score in ranked[:k]:
+        seen: set[tuple[str, str]] = set()
+        for rerank, chunk_index, fused_score, bm25_score, cosine_score in ranked:
             chunk = self.chunks[chunk_index]
+            key = (chunk.article_id, chunk.section)
+            if key in seen:
+                continue
+            seen.add(key)
             hits.append(
                 Hit(
                     article_id=chunk.article_id,
@@ -143,6 +161,8 @@ class SearchIndex:
                     rerank=rerank,
                 )
             )
+            if len(hits) == k:
+                break
         return hits
 
 
@@ -170,6 +190,9 @@ def _rerank(query: str, documents: list[str]) -> list[float]:
 
 
 class NullIndex:
+    def prepare(self, query: str) -> str:
+        return fold_numbers(query or "")
+
     def search(self, query: str, k: int = 5) -> list[Hit]:
         del query, k
         return []

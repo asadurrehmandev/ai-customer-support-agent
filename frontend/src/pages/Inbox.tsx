@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getInbox, handleTicket, when, type Ticket } from "../api.ts";
+import { Empty } from "../Empty.tsx";
 
 export function Inbox() {
   const [rows, setRows] = useState<Ticket[] | null>(null);
@@ -32,7 +33,13 @@ export function Inbox() {
         </p>
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
         {rows === null && !error ? <p className="mt-4 text-sm text-muted">Loading the queue</p> : null}
-        {rows && waiting.length === 0 ? <p className="mt-6 text-sm text-muted">No conversations are waiting for a person.</p> : null}
+        {rows && rows.length === 0 ? (
+          <div className="mt-6">
+            <Empty title="Inbox is empty">Handoffs land here when a refund is over $75, a customer asks for a person, or a guardrail stops the agent. Nothing is waiting.</Empty>
+          </div>
+        ) : null}
+        {rows && rows.length > 0 && waiting.length === 0 ? <p className="mt-6 text-sm text-muted">No conversations are waiting. Handled tickets stay in the list below.</p> : null}
+        {rows && rows.length > 0 ? (
         <div className="mt-4 overflow-hidden rounded-xl border border-line">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-sheet text-muted">
@@ -68,6 +75,12 @@ export function Inbox() {
             </tbody>
           </table>
         </div>
+        ) : null}
+        {rows && rows.length > 0 && !selected ? (
+          <div className="mt-6">
+            <Empty title="No ticket open">Select a row to read the transcript, the summary, and what the agent already did.</Empty>
+          </div>
+        ) : null}
         {selected ? (
           <article className="mt-6 rounded-xl border border-line bg-sheet p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

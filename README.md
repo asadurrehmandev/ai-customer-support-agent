@@ -6,7 +6,7 @@ The dashboard is the agent console: live conversations, the handoff inbox, a per
 
 ## Features
 
-- Help-center answers with inline citations. Articles are ingested from Markdown, HTML, and PDF. Retrieval is BM25 plus local `bge-small` embeddings, then a cross-encoder rerank. A relevance gate decides answer, low-confidence handoff, or "I don't know".
+- Help-center answers with inline citations. Articles are ingested from Markdown, HTML, and PDF. Retrieval is hybrid: BM25 plus local `bge-small` embeddings over small passages, then a cross-encoder rerank, then the quote expands back to the whole section. A relevance gate decides answer, low-confidence handoff, or "not covered".
 - Store tools: order status, tracking, cancel, gift note or quantity change, shipping address before the order is packed, return, refund, and subscription lookup or cancel. Policy windows live in code, not in the model.
 - Identity check before any account read or write. A wrong email or postcode is a generic mismatch. Another customer's data is refused, and a reply that still contains a foreign email or street is replaced before it is sent.
 - Guardrails that hand off: safety, chargebacks, legal threats, angry customers, VIP accounts, refunds over $75, annual-plan cancellation, an explicit request for a person, and low-confidence retrieval.
@@ -72,7 +72,7 @@ npm install
 npm run dev -- --host 0.0.0.0 --port 8842
 ```
 
-Open the console at `http://127.0.0.1:8842`. The shop preview, with the widget, is `http://127.0.0.1:8842/shop`.
+Open the shop at `http://127.0.0.1:8842/shop`. The chat widget on that page is public. The agent console at `http://127.0.0.1:8842` asks for a password. The sign-in card says the demo password is `marlow-hale`. That password and the session secret are local defaults, not production credentials.
 
 The first start seeds 10 fictional customers, 50 orders, 33 help-center articles, and a short set of conversations by running them through the real agent. That seed is what the metrics page counts. It is not a pasted benchmark.
 
@@ -100,19 +100,29 @@ Copy `.env.example` if you want Shopify, Stripe, Zendesk, or a server-side model
 
 ### Email
 
+The webhook checks `X-Keel-Signature: sha256=<hmac-sha256 of the raw body>`. The demo secret is `keel-demo-email`.
+
 ```bash
-curl -s http://127.0.0.1:8841/api/channels/email \
-  -H 'content-type: application/json' \
-  -d '{"from":"hannah.cho@example.com","subject":"Linen","text":"How do I dry linen?"}'
+python - << 'PY'
+import hashlib, hmac, json, urllib.request
+body = json.dumps({"from": "hannah.cho@example.com", "subject": "Linen", "text": "How do I dry linen?"}).encode()
+sig = "sha256=" + hmac.new(b"keel-demo-email", body, hashlib.sha256).hexdigest()
+req = urllib.request.Request(
+    "http://127.0.0.1:8841/api/channels/email",
+    data=body,
+    headers={"Content-Type": "application/json", "X-Keel-Signature": sig},
+)
+print(urllib.request.urlopen(req).read().decode())
+PY
 ```
 
-On the email channel, the From address counts as the email factor. The customer still has to name the order.
+On the email channel, the From address counts as the email factor. The customer still has to name the order. A missing or wrong signature is rejected. Loopback origins may call the widget; any other site has to be listed in `KEEL_WIDGET_ORIGINS`.
 
 ## Demo mode and bring your own key
 
 With no key, the banner says: **Demo mode: sample responses. Add your API key for live AI.**
 
-Replies in that mode are sentences copied from the retrieved section, or a fixed sentence for a tool result, a refusal, or a handoff. They are not a language model improvising policy.
+A help-center reply is a short lead sentence, then the section in quotation marks, then the citation, for example: Here is the figure from the help center. "Ground shipping is $8, or free on orders of $75 or more before tax." [Shipping costs § Ground]. Tool results, refusals, and handoffs use fixed sentences. None of these is a language model improvising policy.
 
 Paste an Anthropic key (`sk-ant-…`) or an OpenAI key (`sk-…`) into Session API key and press Use. The console keeps it in `sessionStorage` under `keel.llmKey` and sends it as `X-Keel-LLM-Key`. The widget on the same origin sends that header too. Clear key removes it. The server does not store it. Access logs pass through a redaction filter for `sk-` tokens.
 
@@ -134,21 +144,42 @@ The full list is on the shop preview. Filler orders `MH-31100` through `MH-31129
 
 ## Tests and evaluation
 
-`pytest` covers policy windows, the Shopify, Stripe, and Zendesk clients against mocked HTTP, Markdown/HTML/PDF ingest, and an adversarial set: injection in the message and in a poisoned article, cross-customer requests, refunds over the threshold and over the amount paid, the 24-hour and 30-day edges, and identity spoofing across turns.
+`pytest` collects 175 tests. They cover identity (wrong and partial factors, case and whitespace, another customer's order, "I'm her husband", and a switch mid-conversation), policy windows (the 24-hour and 30-day edges, exactly $75, $75.01, split refunds, returns outside the window, annual-plan cancels), injection in messages and in articles, topics the help center does not cover, Zendesk payloads, email signature checks, widget origin checks, and log redaction.
 
-The held-out harness is `qa/heldout.json`. `backend/tests/test_eval.py` writes `qa/REPORT.md` from that run. Do not edit the scores by hand. The current report is 36 of 36 cases, with groundedness, citation correctness, tool-call accuracy, and handoff correctness all at 36/36, and a leak count of 0. The poisoned article did not get its instruction into the reply.
+The score that counts is the sealed set, `qa/sealed.json`, hashed in `qa/SEALED.sha256` before it was run. `backend/tests/test_sealed.py` checks that hash and writes `qa/REPORT.md`. Do not edit the scores by hand. The sealed file was not edited after the hash.
 
-Those prompts were written for this product. They are not an independent customer sample, and they do not measure a hosted model's phrasing. See the report for the exact definitions.
+On the latest run, 119 conversations:
+
+| Metric | Result |
+| --- | --- |
+| Fully passed | 105/119 |
+| Groundedness | 108/119 (90.8%) |
+| Citation correctness | 106/119 (89.1%) |
+| Tool accuracy | 118/119 (99.2%) |
+| Handoff check | 116/119 (97.5%) |
+| Correct handoff, where one is required | 15/15 |
+| False handoff rate | 3/88 (3.4%) |
+| Leak count | 0 |
+| Retrieval recall@3 | 43/44 (97.7%) |
+
+The misses are listed in the report. They are mostly paraphrases the cross-encoder will not quote (linen care, a parcel to Brazil, support hours, the same-day ship cutoff, Canadian duties, the wholesale minimum, direct exchanges), one attack whose refusal cites the privacy article, one warranty question buried under an injection, and a "look up this order" turn whose frozen expectation was a subscription lookup. Uncovered topics in the sealed set said "not covered" or handed off, 16/16.
+
+`qa/heldout.json` is an older author-written set. `backend/tests/test_eval.py` writes `qa/heldout-report.md` from it. That file is not the sealed score.
+
+Neither harness calls a hosted model.
 
 ## Limitations
 
-- The console has no login. It is a local demo of one shop. Do not put it on the public internet as-is.
-- Demo replies quote the help center. They can be blunt, and they can cite more than one section when several sentences match.
-- Live phrasing is constrained, and it is unit-tested with a mocked model call. It is not part of the held-out score.
-- Identity is the order number plus the email or postcode on the order. It is not a signed-in account.
-- Shopify is consulted first for an order read when it is configured, and that order is then the one Keel describes. Cancels, address changes, returns, and refunds in this build still run against the local shop. Stripe is consulted first for a subscription lookup. The clients are real HTTP code, tested with mocked responses, and they are not pointed at a live store here.
+- Console sign-in is one shared demo password and an HMAC cookie. It is not account login, SSO, or a permission model. The shop and the widget stay public. Do not put the defaults on the public internet.
+- The cross-encoder still refuses some real paraphrases, including linen wash and dryer wording, shipping to Brazil, support hours, whether a morning order leaves the same day, who pays Canadian duty, the wholesale minimum, and direct exchanges. Those replies say the topic is not covered or hand off. They do not invent a policy. Recall@3 missed 1 of 44 questions ("cafe buying a case of pans").
+- Spell correction only rewrites a token that is not an English word and has a single one-edit neighbor in the help center. Number words such as "seventy five" are folded to digits. There is no per-question keyword list.
+- A bulk-data refusal quotes the privacy section on purpose. One sealed attack expected no citation there.
+- "Who cancels the yearly pantry?" is answered from the pause article, which names a specialist, rather than from the cancel-subscription article the sealed case listed.
+- "Look up MH-31012" reads that order. The sealed case expected a subscription lookup. The reply still refuses to switch to another customer.
+- Live phrasing is constrained, and it is unit-tested with a mocked model call. It is not part of either eval score.
+- Identity is the order number plus the email or postcode on the order. It is not a signed-in account. A verified conversation cannot be moved to a different order.
+- Shopify is consulted first for an order read when it is configured. Cancels, address changes, returns, and refunds still run against the local shop. Stripe is consulted first for a subscription lookup. The clients are real HTTP code, tested with mocked responses, and they are not pointed at a live store here.
 - Zendesk is the same: the client is real, and this demo keeps tickets in the local inbox unless the three Zendesk variables are set.
-- A refund over $75 and an annual Hale Pantry cancellation are handed to a person. Keel does not create the refund or cancel the plan.
-- The retrieval gate can hand off when a question only partly matches an article. Uncovered questions are supposed to be a don't-know, not a guess. The gate is a heuristic.
-- Metrics include the seeded conversations. Those rows were produced by the agent at startup. They are not production traffic, and they are not typed in as rates.
-- SQLite is the default database. `KEEL_DATABASE_URL` can point at Postgres if the driver is installed. This project does not install a Postgres driver.
+- A refund over $75 and an annual Hale Pantry cancellation are handed to a person. Exactly $75 is allowed. Keel does not create the refund or cancel the plan.
+- Metrics are counted from conversations stored in this database, including the rows the agent wrote at startup. They are not production traffic, and they are not typed in as rates.
+- SQLite is the default database. `KEEL_DATABASE_URL` can point at Postgres if the driver is installed. This project does not install a Postgres driver. Docker Compose is in the repo; this environment has no Docker daemon, so that path was not booted here.

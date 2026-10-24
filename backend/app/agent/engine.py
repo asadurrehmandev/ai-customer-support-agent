@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.agent.llm import accept_paraphrase, phrase, safe_error
-from app.agent.read import ACCOUNT_INTENTS, Reading, read_message
+from app.agent.read import ACCOUNT_INTENTS, POLICY_Q, Reading, read_message
 from app.agent.respond import (
     ASK_IDENTITY,
     BULK_REFUSAL,
@@ -25,6 +25,7 @@ from app.agent.respond import (
     LOW_CONFIDENCE,
     MISMATCH,
     SAFE_PII,
+    SWITCH,
     compose_kb,
     with_citation,
 )
@@ -87,6 +88,7 @@ class Agent:
             Message(id=nid("m_"), conversation_id=conv.id, role="customer", content=cleaned, created_at=utcnow())
         )
         session.flush()
+        previous_intent = conv.last_intent
         reading = read_message(cleaned, verified=bool(conv.verified_customer_id), offered_handoff=conv.offered_handoff)
         trace: dict = {
             "states": ["read"],
@@ -115,9 +117,16 @@ class Agent:
         attempted = self._verify(session, conv, cleaned, channel, email_from, trace)
         if attempted == "mismatch":
             return self._finish(session, conv, content=MISMATCH, outcome="pending", status="open", trace=trace, llm_key=llm_key, user_text=cleaned)
+        if attempted == "switch":
+            trace["guardrails"].append({"rule": "identity", "decision": "switch_blocked", "detail": "A verified conversation cannot be moved to another customer."})
+            return self._finish(session, conv, content=SWITCH, outcome="refused", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
         if attempted == "vip":
             trace["guardrails"].append({"rule": "vip", "decision": "handoff", "detail": HANDOFF_COPY["vip"]})
             return self._finish(session, conv, content=HANDOFF_COPY["vip"], outcome="handoff", status="handed_off", trace=trace, handoff_reason="vip", llm_key=llm_key, user_text=cleaned)
+
+        if attempted == "ok" and reading.intent == "kb" and previous_intent in ACCOUNT_INTENTS and not POLICY_Q.search(cleaned):
+            reading.intent = previous_intent
+            trace["intent"] = previous_intent
 
         if reading.intent == "refuse_injection":
             return self._finish(session, conv, content=INJECTION_REFUSAL, outcome="refused", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
@@ -153,10 +162,11 @@ class Agent:
             return self._finish(session, conv, content=body, outcome="answered", status="resolved", trace=trace, llm_key=llm_key, user_text=cleaned)
 
         trace["states"].append("retrieve")
-        hits = self.index.search(reading.query or cleaned, k=6)
+        query = self.index.prepare(reading.query or cleaned)
+        hits = self.index.search(query, k=8)
         trace["retrieval"] = [hit.public() for hit in hits]
         directory = {email.lower() for email in session.scalars(select(Customer.email)).all() if email}
-        level, drafted = compose_kb(reading.query or cleaned, hits, directory)
+        level, drafted = compose_kb(query, hits, directory)
         trace["guardrails"].append({"rule": "grounding", "decision": level, "detail": f"Top cosine {hits[0].cosine:.3f}" if hits else "No chunks"})
         if level == "low":
             trace["states"].append("handoff")
@@ -206,6 +216,10 @@ class Agent:
         if email is None and channel == "email" and email_from:
             email = email_from
         postcode = extract_postcode(text)
+        if conv.verified_customer_id and numbers and numbers[-1] != conv.verified_order_number:
+            return "switch"
+        if conv.verified_customer_id:
+            return None
         if not numbers or not (email or postcode):
             return None
         number = numbers[-1]

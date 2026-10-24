@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getConversation, getConversations, when, type Conversation, type Detail, type Trace } from "../api.ts";
+import { Empty } from "../Empty.tsx";
 
 export function Console() {
   const { id } = useParams();
@@ -69,7 +70,9 @@ export function Console() {
         <div className="min-h-0 flex-1 overflow-auto">
           {error ? <p className="p-4 text-sm text-danger">{error} Start the API on port 8841 and refresh.</p> : null}
           {rows && rows.length === 0 ? (
-            <p className="p-4 text-sm text-muted">No conversations yet. Open the shop preview and send a message, or post to the email webhook.</p>
+            <div className="p-4">
+              <Empty title="No conversations yet">Open the shop preview and send a message, or post a signed email to the webhook. Threads show up here with the customer’s words and Keel’s reply.</Empty>
+            </div>
           ) : null}
           {rows === null && !error ? <p className="p-4 text-sm text-muted">Loading conversations</p> : null}
           <ul>
@@ -92,7 +95,11 @@ export function Console() {
         </div>
       </section>
       <section className={`${id ? "flex" : "hidden lg:flex"} min-h-0 flex-col bg-sheet`}>
-        {!id ? <p className="p-6 text-sm text-muted">Select a conversation. The trace for each reply sits on the right on a wide screen.</p> : null}
+        {!id ? (
+          <div className="p-6">
+            <Empty title="No thread open">Select a conversation. Each reply keeps the path it took: identity, tools, retrieved sections, and the guardrail that fired.</Empty>
+          </div>
+        ) : null}
         {detailError ? <p className="p-4 text-sm text-danger">{detailError}</p> : null}
         {id && detail ? (
           <>
@@ -131,7 +138,7 @@ export function Console() {
           <h2 className="text-lg font-bold">Trace</h2>
         </header>
         <div className="min-h-0 flex-1 overflow-auto p-4">
-          {id ? <TraceView trace={latestTrace} /> : <p className="text-sm text-muted">Retrieval, tool calls, and guardrail decisions for the latest reply.</p>}
+          {id ? <TraceView trace={latestTrace} /> : <Empty title="No trace yet">Retrieval, tool calls, and guardrail decisions appear here for the latest reply.</Empty>}
         </div>
       </aside>
     </div>

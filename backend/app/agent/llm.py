@@ -78,8 +78,10 @@ def accept_paraphrase(draft: str, model_text: str, source_titles: set[str]) -> s
         if title not in source_titles:
             return "unknown_citation"
     lowered = model_text.lower()
-    if "don't have that" in draft.lower() or "do not have that" in draft.lower():
-        if "help center" not in lowered and "don't know" not in lowered and "do not know" not in lowered:
+    draft_lower = draft.lower()
+    uncertain = "not covered" in draft_lower or "don't have that" in draft_lower or "do not have that" in draft_lower
+    if uncertain:
+        if "help center" not in lowered and "not covered" not in lowered and "don't know" not in lowered and "do not know" not in lowered:
             return "dropped_uncertainty"
     if "cancelled order" in draft.lower() and "cancel" not in lowered:
         return "dropped_cancellation"

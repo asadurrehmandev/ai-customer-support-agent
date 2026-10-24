@@ -77,7 +77,8 @@ button {
   font: inherit;
 }
 
-button {
+button,
+[role="button"] {
   cursor: pointer;
 }
 

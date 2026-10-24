@@ -1,6 +1,7 @@
 """Read a customer message. Routing is deterministic so a model cannot be talked into a tool call."""
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 ORDER_HINT = re.compile(r"mh[-\s]?\d{5}", re.I)
@@ -15,23 +16,29 @@ HUMAN = re.compile(
 )
 YES = re.compile(r"^\s*(yes|yes please|please do|yeah|yep|sure|ok|okay)\s*[.!]?\s*$", re.I)
 INSTRUCT = re.compile(
-    r"(ignore (all |any |the )?(previous|prior|above)|ignore (the |our )?policy|"
-    r"disregard (the |our )?policy|system prompt|you are now|print every|"
+    r"(ignore (all |any |the )?(previous|prior|above|instructions)|ignore (the |our )?policy|"
+    r"disregard (the |our )?(policy|instructions)|system prompt|you are now|print every|"
     r"list all (of the )?(customer|email)|dump (the )?(database|emails)|developer mode|"
-    r"jailbreak|reveal (all |every )?(customer|email|order)|do not follow|"
-    r"pretend (that )?you verified|skip verification|ignore verification)",
+    r"jailbreak|reveal (all |every |the )?(customer|email|order|prompt|system)|do not follow|"
+    r"pretend (that )?you verified|skip verification|ignore verification|"
+    r"system\s*:|\[\s*system\s*\]|<\s*system\s*>|new instructions|act as (a )?(system|developer)|"
+    r"tool\s*result|function\s*call|\"tool\"\s*:|\"name\"\s*:\s*\"(get_order|cancel_order|start_refund|list_orders)\")",
     re.I,
 )
 SOCIAL = re.compile(
     r"(i am the ceo|i'm the ceo|this is the ceo|fraud team|as an admin|i authorize you|"
-    r"i'm with the fraud|skip verification|ignore verification)",
+    r"i'm with the fraud|skip verification|ignore verification|"
+    r"i am her husband|i'm her husband|i am his wife|i'm his wife|i am her wife|i'm her wife|"
+    r"this is her husband|this is his wife|calling for my (wife|husband)|on behalf of my (wife|husband))",
     re.I,
 )
+_HIDDEN = re.compile(r"[\u200b\u200c\u200d\u2060\ufeff\u00ad\u180e]")
 EVERYONE = re.compile(
     r"(every customer|all customers|all emails|other customer|someone else|entire database|all orders in the)",
     re.I,
 )
-SAFETY = ("injured", "injury", "burn", "burned", "burning", "fire", "allergic", "allergy", "bleeding", "swallowed", "chok", "recall", "poison", "hospital", "clinic")
+SAFETY = ("injured", "injury", "burn", "burned", "burning", "fire", "bleeding", "swallowed", "chok", "recall", "poison", "hospital", "clinic")
+HARM = ("allergic reaction", "anaphylaxis")
 CHARGE = ("chargeback", "charge back", "charge-back", "disputed the charge", "dispute the charge", "opened a dispute", "called my bank", "calling my bank", "call my bank", "opening a chargeback")
 LEGAL = ("lawyer", "attorney", "lawsuit", "sue ", "suing", "legal action", "my solicitor")
 STRONG = ("furious", "scam", "incompetent", "disgusting", "worst company", "idiot", "useless")
@@ -62,8 +69,18 @@ class Reading:
     query: str
 
 
+def normalize_untrusted(text: str) -> str:
+    """Fold obfuscation before any policy check. The original text is what we store."""
+    raw = _HIDDEN.sub("", text or "")
+    raw = unicodedata.normalize("NFKC", raw)
+    raw = re.sub(r"(?is)<\s*(script|style).*?>.*?</\s*\1\s*>", " ", raw)
+    raw = re.sub(r"<[^>]+>", " ", raw)
+    raw = raw.replace("**", " ").replace("`", " ").replace(">", " ")
+    return raw
+
+
 def is_instructional(text: str) -> bool:
-    return bool(INSTRUCT.search(text or ""))
+    return bool(INSTRUCT.search(normalize_untrusted(text)))
 
 
 def substantive(text: str) -> str:
@@ -108,9 +125,9 @@ def task_intent(text: str, verified: bool) -> str:
             return "subscription_lookup"
         return "kb"
     if "refund" in lowered or (re.search(r"\b(missing|damaged|broken|cracked)\b", lowered) and has_order):
-        if policy_q and not has_order:
-            return "kb"
-        return "start_refund"
+        if has_order or verified or re.search(r"\b(my|this|the) order\b", lowered):
+            return "start_refund"
+        return "kb"
     if re.search(r"\breturn\b", lowered):
         if policy_q and not has_order:
             return "kb"
@@ -133,11 +150,13 @@ def task_intent(text: str, verified: bool) -> str:
         return "order_status"
     if "my orders" in lowered or "all my orders" in lowered:
         return "list_orders"
+    if re.search(r"\b(look\s*up|lookup)\b", lowered) and (has_order or verified):
+        return "order_status"
     return "kb"
 
 
 def read_message(text: str, *, verified: bool, offered_handoff: bool) -> Reading:
-    raw = text or ""
+    raw = normalize_untrusted(text or "")
     injection = bool(INSTRUCT.search(raw))
     social = bool(SOCIAL.search(raw))
     everyone = bool(EVERYONE.search(raw))
@@ -145,7 +164,7 @@ def read_message(text: str, *, verified: bool, offered_handoff: bool) -> Reading
     query = substantive(raw) or raw
     lowered = raw.lower()
     handoff = None
-    if any(word in lowered for word in SAFETY):
+    if any(phrase in lowered for phrase in HARM) or any(word in lowered for word in SAFETY):
         handoff = "safety"
         intent = "safety"
     elif any(word in lowered for word in CHARGE):
@@ -162,7 +181,8 @@ def read_message(text: str, *, verified: bool, offered_handoff: bool) -> Reading
         intent = "human"
     else:
         intent = task_intent(query, verified)
-    if everyone and intent in ACCOUNT_INTENTS | {"kb"}:
+    kept = substantive(raw)
+    if everyone and (not kept or EVERYONE.search(kept)) and intent in ACCOUNT_INTENTS | {"kb"}:
         intent = "refuse_bulk"
     if injection and not substantive(raw):
         intent = "refuse_injection"

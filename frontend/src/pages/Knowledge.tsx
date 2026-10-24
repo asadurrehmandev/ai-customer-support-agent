@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getArticle, getArticles, searchKb, type Article, type ArticleDetail, type Hit } from "../api.ts";
+import { Empty } from "../Empty.tsx";
 
 export function Knowledge() {
   const { id } = useParams();
@@ -36,6 +37,11 @@ export function Knowledge() {
           <p className="text-sm text-muted">{articles ? `${articles.length} articles` : "Loading"}</p>
         </header>
         {error ? <p className="px-4 text-sm text-danger">{error}</p> : null}
+        {articles && articles.length === 0 ? (
+          <div className="p-4">
+            <Empty title="No articles ingested">Upload a Markdown, HTML, or PDF file. Until then, chat has nothing to quote.</Empty>
+          </div>
+        ) : null}
         <ul>
           {(articles || []).map((row) => (
             <li key={row.id}>
@@ -76,7 +82,12 @@ export function Knowledge() {
           </button>
         </form>
         {searchError ? <p className="mt-2 text-sm text-danger">{searchError}</p> : null}
-        {hits ? (
+        {hits && (hits.length === 0 || band === "none") ? (
+          <div className="mt-4">
+            <Empty title="No section matched">The help center has no passage for that wording. Chat would say the topic is not covered, or hand the conversation off, rather than guess.</Empty>
+          </div>
+        ) : null}
+        {hits && hits.length > 0 && band !== "none" ? (
           <div className="mt-4">
             <p className="text-sm text-muted">Gate: {band}. Scores are the retriever's, not a confidence percentage.</p>
             <ul className="mt-2 space-y-3">
@@ -111,8 +122,10 @@ export function Knowledge() {
               </section>
             ))}
           </article>
-        ) : (
-          <p className="mt-6 max-w-xl text-sm text-muted">Pick an article, or search. Answers in chat are quoted from these sections and cite the title and heading.</p>
+        ) : hits && hits.length > 0 && band !== "none" ? null : (
+          <div className="mt-6">
+            <Empty title="No article open">Pick an article, or search. Answers in chat quote these sections and cite the title and heading.</Empty>
+          </div>
         )}
         <Upload onDone={() => getArticles().then(setArticles)} />
       </section>

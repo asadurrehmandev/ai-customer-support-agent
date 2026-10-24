@@ -133,15 +133,20 @@ def _store(session, article_id, title, source_type, source_name, body, sections)
     session.flush()
     position = 0
     for section, text in sections:
-        for piece in _windows(text):
+        parent = re.sub(r"\s+", " ", text).strip()
+        if not parent:
+            continue
+        # Small passages are what we embed. The stored text is the whole section
+        # so a hit expands back to the passage the customer can be quoted from.
+        for passage in _passages(parent):
             session.add(
                 Chunk(
                     id=nid("chk_"),
                     article_id=article_id,
                     title=title,
                     section=section,
-                    text=piece,
-                    embed_text=f"{title} — {section}\n{piece}",
+                    text=parent,
+                    embed_text=f"v2\n{title}\n{section}\n{passage}",
                     position=position,
                     embedding=None,
                 )
@@ -149,6 +154,18 @@ def _store(session, article_id, title, source_type, source_name, body, sections)
             position += 1
     session.flush()
     return article
+
+
+def _passages(text: str) -> list[str]:
+    sentences = [part.strip() for part in re.split(r"(?<=[.])\s+", text) if part.strip()]
+    if len(sentences) <= 1:
+        return [text]
+    passages = list(sentences)
+    for left, right in zip(sentences, sentences[1:]):
+        passages.append(f"{left} {right}")
+    if text not in passages:
+        passages.append(text)
+    return passages
 
 
 def _windows(text: str, limit: int = 900) -> list[str]:

@@ -121,6 +121,7 @@ def can_refund(
     amount_cents: int | None,
     reason: str,
     threshold_cents: int,
+    prior_cents: int = 0,
 ) -> Decision:
     if reason in {"damaged", "missing"}:
         claim = can_claim_problem(order, now, reason)
@@ -137,13 +138,13 @@ def can_refund(
     amount = order.total_cents if amount_cents is None else amount_cents
     if amount <= 0:
         return Decision(False, "bad_amount", "Tell me the refund amount in dollars.")
-    if amount > order.total_cents:
+    if prior_cents + amount > order.total_cents:
         return Decision(
             False,
             "exceeds_paid",
             f"We can only refund up to the amount you paid for the order. This order total is {money(order.total_cents)}.",
         )
-    if amount > threshold_cents:
+    if prior_cents + amount > threshold_cents:
         return Decision(
             False,
             "threshold",

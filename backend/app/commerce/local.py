@@ -221,12 +221,21 @@ class LocalCommerce:
         if row is None:
             return ActionResult(False, "missing", "Those details don't match an order I can access.", tool="start_refund")
         view = self._view(session, row)
+        prior = session.scalars(
+            select(ReturnRequest.amount_cents).where(
+                ReturnRequest.order_number == view.number,
+                ReturnRequest.kind == "refund",
+                ReturnRequest.status == "requested",
+            )
+        ).all()
+        prior_cents = sum(amount or 0 for amount in prior)
         decision = can_refund(
             view,
             self.now(),
             amount_cents=amount_cents,
             reason=reason,
             threshold_cents=self.threshold_cents,
+            prior_cents=prior_cents,
         )
         if decision.handoff_reason:
             return ActionResult(

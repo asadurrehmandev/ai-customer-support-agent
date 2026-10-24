@@ -1,8 +1,11 @@
 """API smoke tests. The app seeds the shop and builds the real index."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
+from app.auth import sign_webhook
 from app.main import create_app
 
 
@@ -17,6 +20,10 @@ def client(tmp_path_factory):
     os.environ["KEEL_OPENAI_API_KEY"] = ""
     app = create_app()
     with TestClient(app) as test_client:
+        assert test_client.get("/api/metrics").status_code == 401
+        assert test_client.post("/api/chat", json={"message": "Hello"}).status_code == 200
+        signed = test_client.post("/api/auth/login", json={"password": "marlow-hale"})
+        assert signed.status_code == 200
         yield test_client
 
 
@@ -75,9 +82,12 @@ def test_pasted_key_is_not_stored(client, respx_mock):
 
 
 def test_email_webhook(client):
+    payload = {"from": "elena.voss@example.com", "subject": "Order", "text": "Where is MH-31009?"}
+    raw = json.dumps(payload).encode()
     response = client.post(
         "/api/channels/email",
-        json={"from": "elena.voss@example.com", "subject": "Order", "text": "Where is MH-31009?"},
+        content=raw,
+        headers={"content-type": "application/json", "x-keel-signature": sign_webhook("keel-demo-email", raw)},
     )
     assert response.status_code == 200
     assert "MH-31009" in response.json()["reply"]

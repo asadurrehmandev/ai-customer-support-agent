@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getFixtures, money, type Fixture } from "../api.ts";
 import { Mark } from "../App.tsx";
+import { Empty } from "../Empty.tsx";
 
 export function Shop() {
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -65,6 +66,12 @@ export function Shop() {
         </p>
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         {fixtures === null && !error ? <p className="mt-3 text-sm text-muted">Loading orders</p> : null}
+        {fixtures && fixtures.length === 0 ? (
+          <div className="mt-4">
+            <Empty title="No demo orders">The shop database has no orders to show. Chat can still answer help-center questions.</Empty>
+          </div>
+        ) : null}
+        {fixtures && fixtures.length > 0 ? (
         <div className="mt-4 overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead className="bg-sheet text-muted">
@@ -91,6 +98,7 @@ export function Shop() {
             </tbody>
           </table>
         </div>
+        ) : null}
       </section>
     </div>
   );

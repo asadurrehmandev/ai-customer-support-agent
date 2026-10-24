@@ -102,7 +102,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(path, { ...init, headers, credentials: "include" });
+  if (response.status === 401 && path !== "/api/auth/login") {
+    window.dispatchEvent(new Event("keel-unauthorized"));
+  }
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -115,6 +118,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
+
+export const getSession = () => request<{ ok: boolean }>("/api/auth/session");
+export const login = (password: string) => request<{ ok: boolean }>("/api/auth/login", { method: "POST", body: JSON.stringify({ password }) });
+export const logout = () => request<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
 
 export const getHealth = () => request<Health>("/api/health");
 export const getConversations = () => request<Conversation[]>("/api/conversations");

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, Route, Routes } from "react-router-dom";
-import { llmKey, setLlmKey } from "./api.ts";
+import { llmKey, login, logout, setLlmKey } from "./api.ts";
 import { Console } from "./pages/Console.tsx";
 import { Inbox } from "./pages/Inbox.tsx";
 import { Knowledge } from "./pages/Knowledge.tsx";
@@ -33,6 +33,24 @@ export default function App() {
 function Shell() {
   const [theme, setTheme] = useState(document.documentElement.dataset.theme || "light");
   const [key, setKey] = useState(llmKey());
+  const [session, setSession] = useState<"checking" | "in" | "out">("checking");
+
+  useEffect(() => {
+    let stop = false;
+    fetch("/api/auth/session", { credentials: "include" })
+      .then((response) => {
+        if (!stop) setSession(response.ok ? "in" : "out");
+      })
+      .catch(() => {
+        if (!stop) setSession("out");
+      });
+    const onUnauthorized = () => setSession("out");
+    window.addEventListener("keel-unauthorized", onUnauthorized);
+    return () => {
+      stop = true;
+      window.removeEventListener("keel-unauthorized", onUnauthorized);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -43,6 +61,10 @@ function Shell() {
   const banner = live
     ? "Live model for this tab. The key stays in session storage and is not saved on the server."
     : "Demo mode: sample responses. Add your API key for live AI.";
+
+  if (session !== "in") {
+    return <Login checking={session === "checking"} onSuccess={() => setSession("in")} />;
+  }
 
   return (
     <div className="flex h-dvh flex-col">
@@ -89,6 +111,13 @@ function Shell() {
             >
               {theme === "dark" ? "Light theme" : "Dark theme"}
             </button>
+            <button
+              type="button"
+              className="mt-2 w-full rounded-lg px-3 py-2 text-sm text-foam underline"
+              onClick={() => void logout().then(() => setSession("out"))}
+            >
+              Sign out
+            </button>
           </div>
         </aside>
         <div className="flex min-h-0 flex-col">
@@ -97,13 +126,18 @@ function Shell() {
               <Mark />
               Keel
             </a>
-            <button
-              type="button"
-              className="rounded-lg border border-line px-3 py-1 text-sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              {theme === "dark" ? "Light" : "Dark"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-line px-3 py-1 text-sm"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "dark" ? "Light" : "Dark"}
+              </button>
+              <button type="button" className="rounded-lg border border-line px-3 py-1 text-sm" onClick={() => void logout().then(() => setSession("out"))}>
+                Sign out
+              </button>
+            </div>
           </header>
           <div className="border-b border-line bg-sheet px-4 py-3 md:hidden">
             <KeyField
@@ -134,6 +168,61 @@ function Shell() {
           </NavLink>
         ))}
       </nav>
+    </div>
+  );
+}
+
+function Login({ checking, onSuccess }: { checking: boolean; onSuccess: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+
+  return (
+    <div className="grid min-h-dvh place-items-center bg-canvas px-4">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-sheet p-6">
+        <div className="flex items-center gap-2 text-ink">
+          <Mark />
+          <p className="text-lg font-bold text-ink">Keel</p>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold">Agent console</h1>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          The shop and the chat widget stay open. This sign-in covers conversations, the inbox, knowledge, and metrics.
+        </p>
+        {checking ? <p className="mt-6 text-sm text-muted">Checking the console session.</p> : null}
+        {checking ? null : (
+          <form
+            className="mt-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setPending(true);
+              setError("");
+              login(password)
+                .then(onSuccess)
+                .catch((err: unknown) => {
+                  setError(err instanceof Error ? err.message : "Sign-in failed.");
+                  setPending(false);
+                });
+            }}
+          >
+            <label className="text-sm font-bold" htmlFor="console-password">
+              Password
+            </label>
+            <input
+              id="console-password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm"
+            />
+            <button type="submit" disabled={pending} className="mt-4 w-full rounded-lg bg-yellow px-3 py-2 text-sm font-bold text-[#141816] disabled:opacity-60">
+              {pending ? "Signing in" : "Sign in"}
+            </button>
+            {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+          </form>
+        )}
+        <p className="mt-6 text-sm leading-6 text-muted">Demo sign-in. The password is marlow-hale and is not a production credential.</p>
+      </div>
     </div>
   );
 }

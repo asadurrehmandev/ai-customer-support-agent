@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
-from app.commerce.policy import can_cancel, can_refund, can_return, can_update_address
-from app.commerce.types import ItemView, OrderView
+import pytest
+
+from app.commerce.policy import can_cancel, can_cancel_subscription, can_refund, can_return, can_update_address
+from app.commerce.types import ItemView, OrderView, SubscriptionView
 
 NOW = datetime(2026, 6, 15, 15, 0, tzinfo=timezone.utc)
 
@@ -100,6 +102,73 @@ def test_small_damaged_refund_is_allowed():
     delivered = order(status="delivered", delivered_at=NOW - timedelta(days=2), total_cents=1800)
     decision = can_refund(delivered, NOW, amount_cents=1800, reason="damaged", threshold_cents=7500)
     assert decision.ok
+
+
+def test_cancel_at_exact_24_hour_mark_is_still_inside():
+    decision = can_cancel(order(placed_at=NOW - timedelta(hours=24)), NOW)
+    assert decision.ok
+    assert decision.code == "ok"
+
+
+def test_cancel_one_second_after_24_hours_is_outside():
+    decision = can_cancel(order(placed_at=NOW - timedelta(hours=24, seconds=1)), NOW)
+    assert decision.code == "outside_window"
+
+
+def test_packed_order_cannot_be_cancelled_inside_the_time_window():
+    decision = can_cancel(order(status="packed", packed_at=NOW, placed_at=NOW - timedelta(minutes=20)), NOW)
+    assert decision.code == "already_locked"
+
+
+def test_address_can_change_while_processing():
+    decision = can_update_address(order(status="processing"), NOW)
+    assert decision.ok
+
+
+def test_return_on_the_exact_30th_day():
+    decision = can_return(order(status="delivered", delivered_at=NOW - timedelta(days=30)), NOW)
+    assert decision.ok
+
+
+def test_return_one_second_after_30_days():
+    decision = can_return(order(status="delivered", delivered_at=NOW - timedelta(days=30, seconds=1)), NOW)
+    assert decision.code == "outside_window"
+
+
+def _refundable(**overrides) -> OrderView:
+    return order(status="delivered", delivered_at=NOW - timedelta(days=2), total_cents=20000, **overrides)
+
+
+@pytest.mark.parametrize(
+    ("amount", "prior", "code", "handoff"),
+    [
+        (7500, 0, "ok", None),
+        (7501, 0, "threshold", "refund_threshold"),
+        (3500, 4000, "ok", None),
+        (3501, 4000, "threshold", "refund_threshold"),
+        (4000, 4000, "threshold", "refund_threshold"),
+        (100, 7400, "ok", None),
+        (101, 7400, "threshold", "refund_threshold"),
+    ],
+)
+def test_refund_threshold_and_split_attempts(amount, prior, code, handoff):
+    decision = can_refund(
+        _refundable(),
+        NOW,
+        amount_cents=amount,
+        reason="customer_request",
+        threshold_cents=7500,
+        prior_cents=prior,
+    )
+    assert decision.code == code
+    assert decision.handoff_reason == handoff
+
+
+def test_annual_plan_cancel_hands_off_and_monthly_does_not():
+    annual = SubscriptionView("s", "c", "Hale Pantry", "year", 34800, "active", "2027-01-01")
+    monthly = SubscriptionView("s", "c", "Hale Pantry", "month", 3400, "active", "2026-07-01")
+    assert can_cancel_subscription(annual).handoff_reason == "annual_plan"
+    assert can_cancel_subscription(monthly).ok
 
 
 def test_damage_claim_closes_after_7_days():
