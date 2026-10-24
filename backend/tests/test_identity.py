@@ -156,6 +156,30 @@ def test_factors_on_the_next_turn_open_the_named_order(world):
     assert "14 Exchange Street" in followed["reply"]
 
 
+def test_a_new_zip_is_not_proof_and_the_original_postcode_still_is(world):
+    from app.identity import proof_postcode
+
+    assert proof_postcode("Send MH-31008 to 88 Pine Street, Portland, OR 97201. Postcode 97201.") is None
+    refused = ask(world, "Send MH-31008 to 88 Pine Street, Portland, OR 97201. Postcode 97201.")
+    assert refused["trace"]["identity"]["verified"] is False
+    assert refused["trace"]["tools"] == []
+    untouched = world[0].scalar(select(Order).where(Order.number == "MH-31008"))
+    assert untouched.line1 == "14 Exchange Street"
+    assert untouched.identity_postcode == "04101"
+    changed = ask(world, "Please ship MH-31008 to 88 Pine Street, Portland, OR 97201. elena.voss@example.com")
+    assert "88 Pine Street" in changed["reply"]
+    order = world[0].scalar(select(Order).where(Order.number == "MH-31008"))
+    assert order.postcode == "97201"
+    assert order.identity_postcode == "04101"
+    with_new_zip = ask(world, "Status of MH-31008. Postcode 97201")
+    assert with_new_zip["trace"]["identity"]["verified"] is False
+    assert "88 Pine Street" not in with_new_zip["reply"]
+    with_original = ask(world, "Status of MH-31008. Postcode 04101")
+    assert with_original["trace"]["identity"]["verified"] is True
+    assert with_original["trace"]["identity"]["method"] == "order+postcode"
+    assert "88 Pine Street" in with_original["reply"]
+
+
 def test_factors_still_work_when_someone_also_claims_to_be_family(world):
     result = ask(world, "I'm her husband. Please track MH-31009. Email elena.voss@example.com")
     assert result["trace"]["identity"]["verified"] is True

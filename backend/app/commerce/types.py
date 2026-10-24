@@ -34,6 +34,8 @@ class OrderView:
     gift_note: str | None
     total_cents: int
     items: list[ItemView] = field(default_factory=list)
+    # Postcode the order was placed with. Shipping postcode can change later.
+    identity_postcode: str = ""
 
     def public(self) -> dict:
         return {

@@ -44,8 +44,8 @@ class RoutedCommerce:
     def describe_order(self, session: Session, number: str) -> ActionResult:
         return self.local.describe_order(session, number)
 
-    def cancel_order(self, session: Session, number: str, reason: str) -> ActionResult:
-        return self.local.cancel_order(session, number, reason)
+    def cancel_order(self, session: Session, number: str, reason: str, request_id: str | None = None) -> ActionResult:
+        return self.local.cancel_order(session, number, reason, request_id=request_id)
 
     def update_address(self, session: Session, number: str, address: dict) -> ActionResult:
         return self.local.update_address(session, number, address)
@@ -56,8 +56,15 @@ class RoutedCommerce:
     def start_return(self, session: Session, number: str, reason: str) -> ActionResult:
         return self.local.start_return(session, number, reason)
 
-    def start_refund(self, session: Session, number: str, amount_cents: int | None, reason: str) -> ActionResult:
-        return self.local.start_refund(session, number, amount_cents, reason)
+    def start_refund(
+        self,
+        session: Session,
+        number: str,
+        amount_cents: int | None,
+        reason: str,
+        request_id: str | None = None,
+    ) -> ActionResult:
+        return self.local.start_refund(session, number, amount_cents, reason, request_id=request_id)
 
     def get_subscription(self, session: Session, customer_id: str, email: str | None = None) -> SubscriptionView | None:
         if self.stripe is not None and email:
@@ -75,5 +82,5 @@ class RoutedCommerce:
             return ActionResult(True, "ok", describe(sub), data=sub.public(), tool="get_subscription")
         return self.local.describe_subscription(session, customer_id)
 
-    def cancel_subscription(self, session: Session, customer_id: str) -> ActionResult:
-        return self.local.cancel_subscription(session, customer_id)
+    def cancel_subscription(self, session: Session, customer_id: str, request_id: str | None = None) -> ActionResult:
+        return self.local.cancel_subscription(session, customer_id, request_id=request_id)

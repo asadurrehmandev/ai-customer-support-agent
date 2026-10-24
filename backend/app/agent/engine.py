@@ -32,8 +32,9 @@ from app.agent.respond import (
 from app.commerce.routed import RoutedCommerce
 from app.config import Settings
 from app.handoff.zendesk import ZendeskClient
+from app.identity import factor_match, proof_email, proof_postcode
 from app.models import Conversation, Customer, Csat, Message, Ticket, TraceRecord
-from app.textutil import content_tokens, emails, extract_postcode, money, nid, normalize_postcode, order_numbers, utcnow
+from app.textutil import content_tokens, emails, money, nid, order_numbers, utcnow
 
 ADDR_RE = re.compile(
     r"(?:\b(?:to|as)\s+)?(?P<line>\d{1,6}\s+[A-Za-z0-9.'-]+(?:\s+[A-Za-z0-9.'-]+){0,5}),\s*(?P<city>[A-Za-z][^,\n]{1,40}),\s*(?P<region>[A-Za-z]{2})\s+(?P<zip>\d{5})\b"
@@ -84,9 +85,8 @@ class Agent:
             email_from=email_from,
             email_subject=email_subject,
         )
-        session.add(
-            Message(id=nid("m_"), conversation_id=conv.id, role="customer", content=cleaned, created_at=utcnow())
-        )
+        customer_message = Message(id=nid("m_"), conversation_id=conv.id, role="customer", content=cleaned, created_at=utcnow())
+        session.add(customer_message)
         session.flush()
         previous_intent = conv.last_intent
         reading = read_message(cleaned, verified=bool(conv.verified_customer_id), offered_handoff=conv.offered_handoff)
@@ -149,7 +149,7 @@ class Agent:
             if not conv.verified_customer_id or not target:
                 return self._finish(session, conv, content=ASK_IDENTITY, outcome="pending", status="open", trace=trace, llm_key=llm_key, user_text=cleaned)
             trace["states"].append("tool")
-            result = self._tool(session, conv, reading.intent, target, cleaned)
+            result = self._tool(session, conv, reading.intent, target, cleaned, request_id=customer_message.id)
             trace["tools"].append(
                 {
                     "name": result.tool,
@@ -225,11 +225,10 @@ class Agent:
 
     def _verify(self, session, conv, text, channel, email_from, trace) -> str | None:
         numbers = order_numbers(text)
-        found_emails = emails(text)
-        email = found_emails[0] if found_emails else None
+        email = proof_email(text)
         if email is None and channel == "email" and email_from:
             email = email_from
-        postcode = extract_postcode(text)
+        postcode = proof_postcode(text)
         if conv.verified_customer_id and numbers and numbers[-1] != conv.verified_order_number:
             return "switch"
         if conv.verified_customer_id:
@@ -238,8 +237,7 @@ class Agent:
             return None
         number = numbers[-1]
         order = self.commerce.get_order(session, number)
-        email_ok = bool(email) and order is not None and order.email.lower() == email.lower()
-        pc_ok = bool(postcode) and order is not None and normalize_postcode(order.postcode) == normalize_postcode(postcode)
+        email_ok, pc_ok = factor_match(order, email, postcode)
         if email and not email_ok:
             trace["identity"] = {"verified": False, "method": None, "order_number": None}
             trace["guardrails"].append({"rule": "identity", "decision": "mismatch", "detail": "Order number and email or postcode did not match."})
@@ -279,10 +277,10 @@ class Agent:
             return target, None
         return target, "cross"
 
-    def _tool(self, session, conv, intent, number, text):
+    def _tool(self, session, conv, intent, number, text, request_id: str | None = None):
         reason = _reason(text)
         if intent == "cancel_order":
-            return self.commerce.cancel_order(session, number, "customer request")
+            return self.commerce.cancel_order(session, number, "customer request", request_id=request_id)
         if intent == "update_address":
             return self.commerce.update_address(session, number, _address(text))
         if intent == "edit_order":
@@ -290,7 +288,7 @@ class Agent:
         if intent == "start_return":
             return self.commerce.start_return(session, number, reason)
         if intent == "start_refund":
-            return self.commerce.start_refund(session, number, _amount(text), reason)
+            return self.commerce.start_refund(session, number, _amount(text), reason, request_id=request_id)
         if intent == "tracking":
             return self.commerce.get_tracking(session, number)
         if intent == "order_status":
@@ -308,7 +306,7 @@ class Agent:
         if intent == "subscription_lookup":
             return self.commerce.describe_subscription(session, conv.verified_customer_id, email=conv.customer_email)
         if intent == "cancel_subscription":
-            return self.commerce.cancel_subscription(session, conv.verified_customer_id)
+            return self.commerce.cancel_subscription(session, conv.verified_customer_id, request_id=request_id)
         from app.commerce.types import ActionResult
 
         return ActionResult(False, "unsupported", "I can't take that action from this chat.", tool=intent)

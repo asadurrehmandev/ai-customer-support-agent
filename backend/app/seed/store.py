@@ -184,6 +184,7 @@ def _insert_order(session, customer, number, status, lines, timing, now, trackin
         city=customer.city,
         region=customer.region,
         postcode=customer.postcode,
+        identity_postcode=customer.postcode,
         gift_note=None,
         total_cents=total,
     )

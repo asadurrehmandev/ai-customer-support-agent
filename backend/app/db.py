@@ -29,6 +29,18 @@ def init_schema() -> None:
     if str(_engine.url).startswith("sqlite"):
         with _engine.begin() as conn:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+            tables = {
+                row[0]
+                for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            }
+            if "orders" in tables:
+                cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(orders)").fetchall()}
+                if "identity_postcode" not in cols:
+                    conn.exec_driver_sql("ALTER TABLE orders ADD COLUMN identity_postcode VARCHAR")
+                conn.exec_driver_sql(
+                    "UPDATE orders SET identity_postcode = postcode "
+                    "WHERE identity_postcode IS NULL OR identity_postcode = ''"
+                )
 
 
 def session() -> Session:

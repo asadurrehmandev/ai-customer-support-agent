@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.commerce.money import ONE_ACTION_MESSAGE, claim_money_action, prior_refund_cents
 from app.commerce.policy import (
     can_cancel,
     can_cancel_subscription,
@@ -56,6 +57,7 @@ class LocalCommerce:
             region=order.region,
             postcode=order.postcode,
             gift_note=order.gift_note,
+            identity_postcode=order.identity_postcode or "",
             total_cents=order.total_cents,
             items=[
                 ItemView(i.sku, i.name, i.qty, i.unit_price_cents, i.final_sale) for i in items
@@ -107,10 +109,12 @@ class LocalCommerce:
         )
         return ActionResult(True, "ok", message, data=order.public(), tool="get_order")
 
-    def cancel_order(self, session: Session, number: str, reason: str) -> ActionResult:
+    def cancel_order(self, session: Session, number: str, reason: str, request_id: str | None = None) -> ActionResult:
         row = self._order_row(session, number)
         if row is None:
             return ActionResult(False, "missing", "Those details don't match an order I can access.", tool="cancel_order")
+        if not claim_money_action(session, request_id, "cancel_order"):
+            return ActionResult(False, "one_action", ONE_ACTION_MESSAGE, tool="cancel_order")
         view = self._view(session, row)
         decision = can_cancel(view, self.now())
         if not decision.ok:
@@ -142,6 +146,7 @@ class LocalCommerce:
         row.city = address["city"].strip()
         row.region = address["region"].strip().upper()
         row.postcode = normalize_postcode(address["postcode"]) or address["postcode"]
+        # identity_postcode stays the postcode from checkout. The new ZIP is shipping only.
         session.flush()
         message = (
             f"I updated the shipping address on order {view.number} to {row.line1}, {row.city}, {row.region} {row.postcode}. "
@@ -216,26 +221,35 @@ class LocalCommerce:
         )
         return ActionResult(True, "ok", message, data={"number": view.number, "kind": "return", "status": "requested"}, tool="start_return")
 
-    def start_refund(self, session: Session, number: str, amount_cents: int | None, reason: str) -> ActionResult:
+    def start_refund(
+        self,
+        session: Session,
+        number: str,
+        amount_cents: int | None,
+        reason: str,
+        request_id: str | None = None,
+    ) -> ActionResult:
+        """Submit one refund. `reason` is stored on the row and does not change the cap.
+
+        The cap is `self.threshold_cents` from server settings. Prior refunds are
+        every refund row on this order. The amount cannot exceed what was paid
+        minus those priors. A second payment action with the same request id
+        is refused before another row is written.
+        """
         row = self._order_row(session, number)
         if row is None:
             return ActionResult(False, "missing", "Those details don't match an order I can access.", tool="start_refund")
+        if not claim_money_action(session, request_id, "start_refund"):
+            return ActionResult(False, "one_action", ONE_ACTION_MESSAGE, tool="start_refund")
         view = self._view(session, row)
-        prior = session.scalars(
-            select(ReturnRequest.amount_cents).where(
-                ReturnRequest.order_number == view.number,
-                ReturnRequest.kind == "refund",
-                ReturnRequest.status == "requested",
-            )
-        ).all()
-        prior_cents = sum(amount or 0 for amount in prior)
+        already = prior_refund_cents(session, view.number)
         decision = can_refund(
             view,
             self.now(),
             amount_cents=amount_cents,
-            reason=reason,
+            reason=reason if reason in {"damaged", "missing"} else "customer_request",
             threshold_cents=self.threshold_cents,
-            prior_cents=prior_cents,
+            prior_cents=already,
         )
         if decision.handoff_reason:
             return ActionResult(
@@ -294,7 +308,9 @@ class LocalCommerce:
         )
         return ActionResult(True, "ok", message, data=sub.public(), tool="get_subscription")
 
-    def cancel_subscription(self, session: Session, customer_id: str) -> ActionResult:
+    def cancel_subscription(self, session: Session, customer_id: str, request_id: str | None = None) -> ActionResult:
+        if not claim_money_action(session, request_id, "cancel_subscription"):
+            return ActionResult(False, "one_action", ONE_ACTION_MESSAGE, tool="cancel_subscription")
         row = session.scalar(select(Subscription).where(Subscription.customer_id == customer_id))
         view = None
         if row is not None:

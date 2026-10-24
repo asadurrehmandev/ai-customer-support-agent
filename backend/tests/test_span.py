@@ -34,6 +34,26 @@ def test_afternoon_cutoff_quotes_the_later_branch_only():
     assert "1pm" not in span.quote
 
 
+def test_before_1pm_is_early_even_though_1pm_is_the_cutoff():
+    assert query_branch("before 1pm eastern... same day ship or no??") == "early"
+    assert query_branch("at 1pm") == "late"
+    assert query_branch("after 1pm") == "late"
+    span = select_span("before 1pm eastern... same day ship or no??", LEAVES, set())
+    assert "same day" in span.quote
+    assert "next business day" not in span.quote
+    assert span.unmet == []
+
+
+def test_where_is_does_not_quote_a_section_that_lacks_the_object():
+    wholesale = "Wholesale orders start at $500 and go through wholesale@marlowandhale.example. Personal orders are prepaid."
+    span = select_span("where are the wholesale login pages for my staff", wholesale, set())
+    assert span.unmet
+    holiday = "The holiday cutoff for ground shipping to the continental United States is December 16."
+    kept = select_span("where is the holiday shipping cutoff for christmas ground", holiday, set())
+    assert kept.unmet == []
+    assert "December 16" in kept.quote
+
+
 def test_clock_time_selects_the_branch():
     assert query_branch("Placed at 9:30am, does the workshop send it the same day?") == "early"
     assert query_branch("Placed at 4pm, does the workshop still send it today?") == "late"

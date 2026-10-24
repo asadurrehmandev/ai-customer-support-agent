@@ -52,6 +52,8 @@ class Order(Base):
     city: Mapped[str] = mapped_column(String)
     region: Mapped[str] = mapped_column(String)
     postcode: Mapped[str] = mapped_column(String)
+    # Shipping postcode can change. This one is the postcode the order was placed with.
+    identity_postcode: Mapped[str | None] = mapped_column(String, nullable=True)
     gift_note: Mapped[str | None] = mapped_column(String, nullable=True)
     total_cents: Mapped[int] = mapped_column(Integer)
 
@@ -171,6 +173,20 @@ class Ticket(Base):
     actions_json: Mapped[str] = mapped_column(Text, default="[]")
     zendesk_id: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="open")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MoneyClaim(Base):
+    """One row per customer message that attempted a payment action.
+
+    The primary key is the customer message id. A second refund, cancel, or
+    plan cancel in that same message cannot insert another row.
+    """
+
+    __tablename__ = "money_claims"
+
+    request_id: Mapped[str] = mapped_column(String, primary_key=True)
+    tool: Mapped[str] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.textutil import content_tokens
+from app.textutil import STOP, _stem, content_tokens
 
 _EARLY_Q = re.compile(
     r"\b(morning|before noon|before the cutoff|before \d|a\.?\s*m\.?\b|same(?: business)? day|that day|today|early)\b",
@@ -41,6 +41,10 @@ _SCOPE = ("restaurant", "commercial", "lifetime", "resale", "transferable", "ind
 # A channel or a day is a constraint. Hours that never mention a phone line
 # do not answer "Saturday phone support".
 _CHANNEL = ("phone", "telephone", "saturday", "sunday", "whatsapp", "instagram")
+_WHERE_OBJ = re.compile(
+    r"\bwhere (?:is|are)\s+(?P<object>.+?)(?:\?|$|\b(?:for|in|on|at|from|if|when|about)\b)",
+    re.I,
+)
 
 # Places are a constraint type, not a retrieval boost. Cities map to the region
 # a shipping section would have to name.
@@ -111,6 +115,12 @@ def query_branch(query: str) -> str | None:
     text = query or ""
     clock = _CLOCK.search(text)
     if clock:
+        prefix = text[max(0, clock.start() - 16) : clock.start()]
+        # "before 1pm" is the early branch. The clock alone would read 1pm as the cutoff instant.
+        if re.search(r"\bbefore\b", prefix, re.I):
+            return "early"
+        if re.search(r"\bafter\b", prefix, re.I):
+            return "late"
         hour = int(clock.group(1))
         minute = int(clock.group(2) or 0)
         meridiem = clock.group(3).lower().replace(" ", "").replace(".", "")
@@ -208,6 +218,9 @@ def select_span(query: str, text: str, directory_emails: set[str] | None = None)
     for word in _CHANNEL:
         if word in query_tokens and word not in section_tokens:
             unmet.append(word)
+    located = _where_object_missing(query, blob)
+    if located and located not in unmet:
+        unmet.append(located)
     if exclusion and not unmet:
         chosen = [sentence for sentence in sentences if _EXCLUSION.search(sentence)] or sentences
         return Span(_finish(chosen), [])
@@ -226,6 +239,29 @@ def select_span(query: str, text: str, directory_emails: set[str] | None = None)
             return Span(_finish(holding), unmet)
     # No constraint picked a branch. Quote the section, not one stray sentence.
     return Span(_finish(sentences), unmet)
+
+
+def _where_object_missing(query: str, blob: str) -> str | None:
+    """A where-is question is unmet when its object is not in the section.
+
+    "Where is the holiday cutoff" can quote a section that says cutoff.
+    "Where are the login pages" cannot quote a wholesale paragraph that never says login.
+    """
+    match = _WHERE_OBJ.search(query or "")
+    if not match:
+        return None
+    have = content_tokens(blob)
+    missing: list[str] = []
+    for word in re.findall(r"[a-z0-9']+", match.group("object").lower()):
+        if len(word) <= 2 or word in STOP:
+            continue
+        if _stem(word) not in have:
+            missing.append(word)
+    if not missing:
+        return None
+    generic = {"page", "pages", "thing", "stuff", "info", "information", "place", "section", "link"}
+    specific = [word for word in missing if word not in generic]
+    return (specific or missing)[-1]
 
 
 def heading_overlap(query: str, title: str, section: str) -> int:

@@ -40,6 +40,12 @@ def test_a_burner_is_not_an_injury_and_a_burn_is():
     assert hurt.handoff_reason == "safety"
     choked = read_message("My child was choking on a broken chip of enamel.", verified=False, offered_handoff=False)
     assert choked.handoff_reason == "safety"
+    cut = read_message("The lid cracked and cut my thumb. Please get a person.", verified=False, offered_handoff=False)
+    assert cut.handoff_reason == "safety"
+    cutoff = read_message("where is the holiday shipping cutoff", verified=False, offered_handoff=False)
+    assert cutoff.handoff_reason is None
+    person = read_message("Please get a person to look at this towel.", verified=False, offered_handoff=False)
+    assert person.handoff_reason == "customer_requested"
 
 
 def test_refund_amount_is_the_figure_next_to_refund():

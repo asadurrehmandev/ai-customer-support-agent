@@ -11,7 +11,7 @@ POLICY_Q = re.compile(
 )
 HUMAN = re.compile(
     r"\b(talk to (a )?(human|person|someone)|real person|transfer me|speak to (a )?(person|human)|customer service representative|hand me to)\b"
-    r"|\b(want|need|get me) (a )?specialist\b",
+    r"|\b(want|need|get me) (a )?specialist\b|\bget (me )?a person\b",
     re.I,
 )
 YES = re.compile(r"^\s*(yes|yes please|please do|yeah|yep|sure|ok|okay)\s*[.!]?\s*$", re.I)
@@ -40,7 +40,7 @@ EVERYONE = re.compile(
     re.I,
 )
 # Whole words. "burn" must not match "burner". "chok" stays a prefix so choking and choked still hand off.
-SAFETY = ("injured", "injury", "injuries", "burn", "burned", "burning", "burnt", "fire", "bleeding", "swallowed", "chok", "recall", "recalled", "poison", "poisoned", "hospital", "clinic")
+SAFETY = ("injured", "injury", "injuries", "burn", "burned", "burning", "burnt", "fire", "bleeding", "swallowed", "chok", "cut", "cuts", "recall", "recalled", "poison", "poisoned", "hospital", "clinic")
 SAFETY_PREFIX = ("chok",)
 HARM = ("allergic reaction", "anaphylaxis")
 CHARGE = ("chargeback", "charge back", "charge-back", "disputed the charge", "dispute the charge", "opened a dispute", "called my bank", "calling my bank", "call my bank", "opening a chargeback")
